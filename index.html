@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Breakout with Words</title>
+  <title>Tamabrickchi</title>
   <style>
     body {
       margin: 0;
@@ -10,14 +10,16 @@
       color: black;
       font-family: monospace;
       text-align: center;
+      touch-action: none; /* Prevent scroll during game */
     }
     canvas {
       background: white;
       display: block;
       margin: 20px auto;
       border: 1px solid black;
+      touch-action: none;
     }
-    #restartBtn, #startBtn {
+    #restartBtn, #startBtn, #fullscreenBtn {
       display: none;
       font-family: monospace;
       font-size: 20px;
@@ -38,31 +40,43 @@
 </head>
 <body>
   <div style="display: flex; flex-direction: column; align-items: center;">
-  <h1>Breakout: Audio & Echoes</h1>
-  <div id="instructions">
-    <p>Use <strong>A/D</strong> or <strong>Left/Right Arrows</strong> to move the paddle.</p>
-    <p>Break all words. Timer increases +1s on successful hit.</p>
-    <p>Game over if the ball is missed.</p>
-    <button id="startBtn">Start Game</button>
+    <h1>Tamabrickchi</h1>
+    <div id="instructions">
+      <p>Use <strong>Left/Right Arrows</strong> to move the paddle.</p>
+      <p>Press <strong>Spacebar</strong> to start the ball.</p>
+      <p>Break all words. Timer increases +1s on successful hit.</p>
+      <p>Game over if the ball is missed.</p>
+      <button id="startBtn">Start Game</button>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <button id="fullscreenBtn">Fullscreen</button>
+    <button id="restartBtn" onclick="location.reload()">Restart</button>
   </div>
-  <canvas id="gameCanvas" style="display:none; box-shadow: 0 0 0 2px black; width: 100%; max-width: 1400px; height: auto; aspect-ratio: 2 / 1;"><button id="fullscreenBtn" style="display:none; font-family: monospace; font-size: 16px; padding: 6px 12px; margin: 10px auto; border: 1px solid black; background: white; cursor: pointer;">Fullscreen</button>
-$1  <button id="restartBtn" onclick="location.reload()">Restart</button>
+
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
+
     function resizeCanvas() {
       const width = window.innerWidth > 768 ? window.innerWidth * 0.9 : window.innerWidth;
       const height = window.innerHeight > 768 ? window.innerHeight * 0.6 : window.innerHeight * 0.85;
       canvas.width = Math.min(1400, width);
       canvas.height = Math.floor(canvas.width / 2);
     }
+
+    let resizeTimeout;
     window.addEventListener("resize", () => {
-      resizeCanvas();
-      createWords();
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        resizeCanvas();
+        createWords();
+      }, 300);
     });
+
     resizeCanvas();
+
     const restartBtn = document.getElementById("restartBtn");
-const fullscreenBtn = document.getElementById("fullscreenBtn");
+    const fullscreenBtn = document.getElementById("fullscreenBtn");
     const startBtn = document.getElementById("startBtn");
     const instructions = document.getElementById("instructions");
 
@@ -80,7 +94,8 @@ const fullscreenBtn = document.getElementById("fullscreenBtn");
       y: canvas.height - 30,
       radius: 8,
       dx: 4,
-      dy: -4
+      dy: -4,
+      moving: false
     };
 
     const wordTypes = ["audio", "echoes"];
@@ -96,6 +111,7 @@ const fullscreenBtn = document.getElementById("fullscreenBtn");
     let score = 0;
     let timer = 60;
     let gameOver = false;
+    let timerInterval;
 
     function createWords() {
       words = [];
@@ -150,6 +166,8 @@ const fullscreenBtn = document.getElementById("fullscreenBtn");
     }
 
     function moveBall() {
+      if (!ball.moving) return;
+
       ball.x += ball.dx;
       ball.y += ball.dy;
 
@@ -179,24 +197,15 @@ const fullscreenBtn = document.getElementById("fullscreenBtn");
       if (ball.y > canvas.height) {
         gameOver = true;
         restartBtn.style.display = "inline-block";
+        clearInterval(timerInterval);
       }
     }
 
     function checkAndAddRows() {
-      let rowsCleared = true;
-      for (let row = 0; row < rows; row++) {
-        const start = row * cols;
-        const end = start + cols;
-        const currentRow = words.slice(start, end);
-        if (currentRow.some(word => !word.destroyed)) {
-          rowsCleared = false;
-          break;
-        }
-      }
-
-      if (rowsCleared) {
-        let newRow = [];
+      const allDestroyed = words.every(word => word.destroyed);
+      if (allDestroyed) {
         const offsetX = (canvas.width - (cols * (wordWidth + wordSpacingX))) / 2;
+        const newRow = [];
         for (let col = 0; col < cols; col++) {
           newRow.push({
             x: offsetX + col * (wordWidth + wordSpacingX),
@@ -233,6 +242,7 @@ const fullscreenBtn = document.getElementById("fullscreenBtn");
         ctx.fillStyle = "black";
         ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2);
         restartBtn.style.display = "inline-block";
+        clearInterval(timerInterval);
         return;
       }
       requestAnimationFrame(gameLoop);
@@ -252,25 +262,49 @@ const fullscreenBtn = document.getElementById("fullscreenBtn");
       canvas.style.display = 'block';
       fullscreenBtn.style.display = 'inline-block';
       createWords();
+      gameOver = false;
+      timer = 60;
+      ball.moving = false;
+      ball.x = canvas.width / 2;
+      ball.y = canvas.height - 30;
       gameLoop();
-      setInterval(() => {
+      timerInterval = setInterval(() => {
         if (timer > 0 && !gameOver) timer--;
+        else clearInterval(timerInterval);
       }, 1000);
     };
 
+    // Keyboard controls (Arrow keys only, spacebar to launch)
     document.addEventListener("keydown", e => {
-      if (e.key === "ArrowLeft" || e.key === "a") paddle.dx = -paddle.speed;
-      if (e.key === "ArrowRight" || e.key === "d") paddle.dx = paddle.speed;
+      if (e.key === "ArrowLeft") paddle.dx = -paddle.speed;
+      if (e.key === "ArrowRight") paddle.dx = paddle.speed;
+      if (e.code === "Space" && !ball.moving && !gameOver) {
+        ball.moving = true;
+      }
     });
 
     document.addEventListener("keyup", e => {
-      if (
-        e.key === "ArrowLeft" ||
-        e.key === "ArrowRight" ||
-        e.key === "a" ||
-        e.key === "d"
-      ) paddle.dx = 0;
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") paddle.dx = 0;
     });
+
+    // Mobile touch controls
+    function handleTouchStart(e) {
+      const touchX = e.touches[0].clientX;
+      const middle = window.innerWidth / 2;
+      if (touchX < middle) {
+        paddle.dx = -paddle.speed;
+      } else {
+        paddle.dx = paddle.speed;
+      }
+    }
+
+    function handleTouchEnd() {
+      paddle.dx = 0;
+    }
+
+    canvas.addEventListener("touchstart", handleTouchStart);
+    canvas.addEventListener("touchmove", handleTouchStart);
+    canvas.addEventListener("touchend", handleTouchEnd);
 
     fullscreenBtn.onclick = () => {
       if (!document.fullscreenElement) {
@@ -292,6 +326,5 @@ const fullscreenBtn = document.getElementById("fullscreenBtn");
       }
     };
   </script>
-  </div>
 </body>
 </html>

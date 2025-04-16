@@ -14,14 +14,15 @@
       font-family: monospace;
       background: white;
       color: black;
-      text-align: center;
       touch-action: none;
     }
-    canvas {
-      background: white;
+    #gameCanvas {
       display: none;
       border: 1px solid black;
       touch-action: none;
+      background: white;
+      margin: 0 auto;
+      display: block;
     }
     #restartBtn, #startBtn, #fullscreenBtn {
       font-family: monospace;
@@ -38,6 +39,7 @@
       max-width: 600px;
       margin: 20px auto;
       display: block;
+      text-align: center;
     }
     #loading {
       position: fixed;
@@ -62,7 +64,7 @@
     <button id="startBtn">Start Game</button>
   </div>
   <canvas id="gameCanvas"></canvas>
-  <div>
+  <div style="text-align: center;">
     <button id="fullscreenBtn">Fullscreen</button>
     <button id="restartBtn" onclick="location.reload()">Restart</button>
   </div>
@@ -204,7 +206,11 @@
       drawTimer() {
         this.ctx.font = "20px monospace";
         this.ctx.fillStyle = "black";
-        this.ctx.fillText(`Time: ${this.timer}s`, this.canvas.width - 100, 20);
+        this.ctx.textAlign = "left";
+        this.ctx.fillText(`Score: ${this.score}`, 20, 20);
+
+        this.ctx.textAlign = "right";
+        this.ctx.fillText(`Time: ${this.timer}s`, this.canvas.width - 20, 20);
       }
 
       update() {

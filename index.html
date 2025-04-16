@@ -55,253 +55,243 @@
   </div>
 
   <script>
-    window.onload = () => {
-      const canvas = document.getElementById("gameCanvas");
-      const ctx = canvas.getContext("2d");
-
-      function resizeCanvas() {
-        const width = window.innerWidth > 768 ? window.innerWidth * 0.9 : window.innerWidth;
-        const height = window.innerHeight > 768 ? window.innerHeight * 0.6 : window.innerHeight * 0.85;
-        canvas.width = Math.min(1400, width);
-        canvas.height = Math.floor(canvas.width / 2);
+    class Paddle {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.width = 100;
+        this.height = 10;
+        this.x = canvas.width / 2 - this.width / 2;
+        this.y = canvas.height - 20;
+        this.speed = 6;
+        this.dx = 0;
       }
 
-      let resizeTimeout;
-      window.addEventListener("resize", () => {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(() => {
-          resizeCanvas();
-          createWords();
-        }, 300);
-      });
-
-      resizeCanvas();
-
-      const restartBtn = document.getElementById("restartBtn");
-      const fullscreenBtn = document.getElementById("fullscreenBtn");
-      const startBtn = document.getElementById("startBtn");
-      const instructions = document.getElementById("instructions");
-
-      const paddle = {
-        x: canvas.width / 2 - 50,
-        y: canvas.height - 20,
-        width: 100,
-        height: 10,
-        speed: 6,
-        dx: 0
-      };
-
-      const ball = {
-        x: canvas.width / 2,
-        y: canvas.height - 30,
-        radius: 8,
-        dx: 4,
-        dy: -4,
-        moving: false
-      };
-
-      const wordTypes = ["audio", "echoes"];
-      const wordWidth = 80;
-      const wordHeight = 30;
-      const hMargin = 60;
-      const vMargin = 50;
-      const wordSpacingX = 10;
-      const wordSpacingY = 20;
-      let rows = 3;
-      let cols;
-      let words = [];
-      let score = 0;
-      let timer = 60;
-      let gameOver = false;
-      let timerInterval;
-
-      function createWords() {
-        words = [];
-        cols = Math.floor((canvas.width - 2 * hMargin) / (wordWidth + wordSpacingX));
-        const offsetX = (canvas.width - (cols * (wordWidth + wordSpacingX))) / 2;
-        for (let row = 0; row < rows; row++) {
-          for (let col = 0; col < cols; col++) {
-            words.push({
-              x: offsetX + col * (wordWidth + wordSpacingX),
-              y: vMargin + row * (wordHeight + wordSpacingY),
-              type: wordTypes[Math.floor(Math.random() * wordTypes.length)],
-              destroyed: false
-            });
-          }
-        }
+      move() {
+        this.x += this.dx;
+        if (this.x < 0) this.x = 0;
+        if (this.x + this.width > this.canvas.width) this.x = this.canvas.width - this.width;
       }
 
-      function drawPaddle() {
-        ctx.strokeRect(paddle.x, paddle.y, paddle.width, paddle.height);
+      draw(ctx) {
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+      }
+    }
+
+    class Ball {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.radius = 8;
+        this.reset();
       }
 
-      function drawBall() {
+      reset() {
+        this.x = this.canvas.width / 2;
+        this.y = this.canvas.height - 30;
+        this.dx = 4;
+        this.dy = -4;
+        this.moving = false;
+      }
+
+      move() {
+        if (!this.moving) return;
+        this.x += this.dx;
+        this.y += this.dy;
+
+        if (this.x < this.radius || this.x > this.canvas.width - this.radius) this.dx *= -1;
+        if (this.y < this.radius) this.dy *= -1;
+      }
+
+      draw(ctx) {
         ctx.beginPath();
-        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-        ctx.stroke();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
         ctx.closePath();
       }
+    }
 
-      function drawWords() {
-        ctx.font = "16px monospace";
-        ctx.fillStyle = "black";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        words.forEach(word => {
-          if (!word.destroyed) {
-            ctx.strokeRect(word.x, word.y, wordWidth, wordHeight);
-            ctx.strokeText(word.type, word.x + wordWidth / 2, word.y + wordHeight / 2);
+    class WordBlock {
+      constructor(x, y, type) {
+        this.x = x;
+        this.y = y;
+        this.type = type;
+        this.destroyed = false;
+      }
+
+      draw(ctx, width, height) {
+        if (this.destroyed) return;
+        ctx.strokeRect(this.x, this.y, width, height);
+        ctx.strokeText(this.type, this.x + width / 2, this.y + height / 2);
+      }
+    }
+
+    class Game {
+      constructor() {
+        this.canvas = document.getElementById("gameCanvas");
+        this.ctx = this.canvas.getContext("2d");
+        this.paddle = new Paddle(this.canvas);
+        this.ball = new Ball(this.canvas);
+        this.wordTypes = ["audio", "echoes"];
+        this.wordWidth = 80;
+        this.wordHeight = 30;
+        this.hMargin = 60;
+        this.vMargin = 50;
+        this.wordSpacingX = 10;
+        this.wordSpacingY = 20;
+        this.rows = 3;
+        this.cols = 0;
+        this.words = [];
+        this.score = 0;
+        this.timer = 60;
+        this.timerInterval = null;
+        this.gameOver = false;
+        this.setup();
+      }
+
+      setup() {
+        this.resizeCanvas();
+        this.createWords();
+        this.addEventListeners();
+      }
+
+      resizeCanvas() {
+        const width = window.innerWidth > 768 ? window.innerWidth * 0.9 : window.innerWidth;
+        const height = window.innerHeight > 768 ? window.innerHeight * 0.6 : window.innerHeight * 0.85;
+        this.canvas.width = Math.min(1400, width);
+        this.canvas.height = Math.floor(this.canvas.width / 2);
+      }
+
+      createWords() {
+        this.words = [];
+        this.cols = Math.floor((this.canvas.width - 2 * this.hMargin) / (this.wordWidth + this.wordSpacingX));
+        const offsetX = (this.canvas.width - (this.cols * (this.wordWidth + this.wordSpacingX))) / 2;
+        for (let row = 0; row < this.rows; row++) {
+          for (let col = 0; col < this.cols; col++) {
+            const x = offsetX + col * (this.wordWidth + this.wordSpacingX);
+            const y = this.vMargin + row * (this.wordHeight + this.wordSpacingY);
+            const type = this.wordTypes[Math.floor(Math.random() * this.wordTypes.length)];
+            this.words.push(new WordBlock(x, y, type));
           }
-        });
+        }
       }
 
-      function drawTimer() {
-        ctx.font = "20px monospace";
-        ctx.fillStyle = "black";
-        ctx.fillText(`Time: ${timer}s`, canvas.width - 100, 20);
+      drawTimer() {
+        this.ctx.font = "20px monospace";
+        this.ctx.fillStyle = "black";
+        this.ctx.fillText(`Time: ${this.timer}s`, this.canvas.width - 100, 20);
       }
 
-      function movePaddle() {
-        paddle.x += paddle.dx;
-        if (paddle.x < 0) paddle.x = 0;
-        if (paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width;
+      update() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.paddle.move();
+        this.ball.move();
+        this.checkCollisions();
+        this.paddle.draw(this.ctx);
+        this.ball.draw(this.ctx);
+        this.words.forEach(word => word.draw(this.ctx, this.wordWidth, this.wordHeight));
+        this.drawTimer();
       }
 
-      function moveBall() {
-        if (!ball.moving) return;
-
-        ball.x += ball.dx;
-        ball.y += ball.dy;
-
-        if (ball.x < ball.radius || ball.x > canvas.width - ball.radius) ball.dx *= -1;
-        if (ball.y < ball.radius) ball.dy *= -1;
-
+      checkCollisions() {
         if (
-          ball.x > paddle.x &&
-          ball.x < paddle.x + paddle.width &&
-          ball.y + ball.radius > paddle.y
+          this.ball.x > this.paddle.x &&
+          this.ball.x < this.paddle.x + this.paddle.width &&
+          this.ball.y + this.ball.radius > this.paddle.y
         ) {
-          ball.dy *= -1;
-          ball.y = paddle.y - ball.radius;
-          timer += 1;
+          this.ball.dy *= -1;
+          this.ball.y = this.paddle.y - this.ball.radius;
+          this.timer += 1;
         }
 
-        words.forEach(word => {
+        for (let word of this.words) {
           if (!word.destroyed &&
-              ball.x > word.x && ball.x < word.x + wordWidth &&
-              ball.y - ball.radius < word.y + wordHeight && ball.y + ball.radius > word.y) {
+              this.ball.x > word.x && this.ball.x < word.x + this.wordWidth &&
+              this.ball.y - this.ball.radius < word.y + this.wordHeight && this.ball.y + this.ball.radius > word.y) {
             word.destroyed = true;
-            ball.dy *= -1;
-            score++;
+            this.ball.dy *= -1;
+            this.score++;
+          }
+        }
+
+        if (this.words.every(w => w.destroyed)) {
+          this.winGame();
+        }
+
+        if (this.ball.y > this.canvas.height) {
+          this.endGame();
+        }
+      }
+
+      start() {
+        this.gameOver = false;
+        this.ball.reset();
+        this.timer = 60;
+        this.createWords();
+        this.timerInterval = setInterval(() => {
+          if (this.timer > 0 && !this.gameOver) this.timer--;
+          else this.endGame();
+        }, 1000);
+        this.loop();
+      }
+
+      loop() {
+        if (this.gameOver) return;
+        this.update();
+        requestAnimationFrame(() => this.loop());
+      }
+
+      endGame() {
+        this.gameOver = true;
+        clearInterval(this.timerInterval);
+        this.ctx.font = "40px monospace";
+        this.ctx.fillText("GAME OVER", this.canvas.width / 2, this.canvas.height / 2);
+        document.getElementById("restartBtn").style.display = "inline-block";
+      }
+
+      winGame() {
+        this.gameOver = true;
+        clearInterval(this.timerInterval);
+        this.ctx.font = "40px monospace";
+        this.ctx.fillStyle = "green";
+        this.ctx.fillText("YOU WIN!", this.canvas.width / 2, this.canvas.height / 2);
+        document.getElementById("restartBtn").style.display = "inline-block";
+      }
+
+      addEventListeners() {
+        window.addEventListener("resize", () => this.resizeCanvas());
+
+        document.addEventListener("keydown", e => {
+          if (e.key === "ArrowLeft") this.paddle.dx = -this.paddle.speed;
+          if (e.key === "ArrowRight") this.paddle.dx = this.paddle.speed;
+          if (e.code === "Space" && !this.ball.moving && !this.gameOver) {
+            this.ball.moving = true;
           }
         });
 
-        if (ball.y > canvas.height) {
-          gameOver = true;
-          restartBtn.style.display = "inline-block";
-          clearInterval(timerInterval);
-        }
+        document.addEventListener("keyup", e => {
+          if (e.key === "ArrowLeft" || e.key === "ArrowRight") this.paddle.dx = 0;
+        });
+
+        this.canvas.addEventListener("touchstart", e => {
+          const middle = window.innerWidth / 2;
+          const touchX = e.touches[0].clientX;
+          this.paddle.dx = touchX < middle ? -this.paddle.speed : this.paddle.speed;
+        });
+
+        this.canvas.addEventListener("touchend", () => this.paddle.dx = 0);
+
+        document.getElementById("fullscreenBtn").onclick = () => {
+          if (!document.fullscreenElement) this.canvas.requestFullscreen?.();
+          else document.exitFullscreen?.();
+        };
       }
+    }
 
-      function checkAndAddRows() {
-        const allDestroyed = words.every(word => word.destroyed);
-        if (allDestroyed) {
-          const offsetX = (canvas.width - (cols * (wordWidth + wordSpacingX))) / 2;
-          const newRow = [];
-          for (let col = 0; col < cols; col++) {
-            newRow.push({
-              x: offsetX + col * (wordWidth + wordSpacingX),
-              y: -wordHeight,
-              type: wordTypes[Math.floor(Math.random() * wordTypes.length)],
-              destroyed: false
-            });
-          }
-          words = newRow.concat(words);
-          let animateStep = 0;
-          let slide = setInterval(() => {
-            animateStep++;
-            newRow.forEach(word => word.y += 2);
-            if (animateStep >= 20) clearInterval(slide);
-          }, 16);
-        }
-      }
-
-      function update() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        movePaddle();
-        moveBall();
-        checkAndAddRows();
-        drawPaddle();
-        drawBall();
-        drawWords();
-        drawTimer();
-      }
-
-      function gameLoop() {
-        update();
-        if (gameOver || timer <= 0) {
-          ctx.font = "40px monospace";
-          ctx.fillStyle = "black";
-          ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2);
-          restartBtn.style.display = "inline-block";
-          clearInterval(timerInterval);
-          return;
-        }
-        requestAnimationFrame(gameLoop);
-      }
-
-      startBtn.onclick = () => {
-        if (window.innerWidth < 768 && canvas.requestFullscreen) {
-          canvas.requestFullscreen();
-        }
-        instructions.style.display = 'none';
-        canvas.style.display = 'block';
-        fullscreenBtn.style.display = 'inline-block';
-        createWords();
-        gameOver = false;
-        timer = 60;
-        ball.moving = false;
-        ball.x = canvas.width / 2;
-        ball.y = canvas.height - 30;
-        gameLoop();
-        timerInterval = setInterval(() => {
-          if (timer > 0 && !gameOver) timer--;
-          else clearInterval(timerInterval);
-        }, 1000);
-      };
-
-      document.addEventListener("keydown", e => {
-        if (e.key === "ArrowLeft") paddle.dx = -paddle.speed;
-        if (e.key === "ArrowRight") paddle.dx = paddle.speed;
-        if (e.code === "Space" && !ball.moving && !gameOver) {
-          ball.moving = true;
-        }
-      });
-
-      document.addEventListener("keyup", e => {
-        if (e.key === "ArrowLeft" || e.key === "ArrowRight") paddle.dx = 0;
-      });
-
-      function handleTouchStart(e) {
-        const touchX = e.touches[0].clientX;
-        const middle = window.innerWidth / 2;
-        paddle.dx = touchX < middle ? -paddle.speed : paddle.speed;
-      }
-
-      function handleTouchEnd() {
-        paddle.dx = 0;
-      }
-
-      canvas.addEventListener("touchstart", handleTouchStart);
-      canvas.addEventListener("touchmove", handleTouchStart);
-      canvas.addEventListener("touchend", handleTouchEnd);
-
-      fullscreenBtn.onclick = () => {
-        if (!document.fullscreenElement) {
-          canvas.requestFullscreen?.();
-        } else {
-          document.exitFullscreen?.();
-        }
+    window.onload = () => {
+      const game = new Game();
+      document.getElementById("startBtn").onclick = () => {
+        document.getElementById("instructions").style.display = "none";
+        document.getElementById("fullscreenBtn").style.display = "inline-block";
+        game.start();
       };
     };
   </script>

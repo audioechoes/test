@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Tamabrickchi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
       margin: 0;
@@ -250,8 +251,8 @@
       }
 
       startBtn.onclick = () => {
-        if (window.innerWidth < 768) {
-          if (canvas.requestFullscreen) canvas.requestFullscreen();
+        if (window.innerWidth < 768 && canvas.requestFullscreen) {
+          canvas.requestFullscreen();
         }
         instructions.style.display = 'none';
         canvas.style.display = 'block';
@@ -284,11 +285,7 @@
       function handleTouchStart(e) {
         const touchX = e.touches[0].clientX;
         const middle = window.innerWidth / 2;
-        if (touchX < middle) {
-          paddle.dx = -paddle.speed;
-        } else {
-          paddle.dx = paddle.speed;
-        }
+        paddle.dx = touchX < middle ? -paddle.speed : paddle.speed;
       }
 
       function handleTouchEnd() {

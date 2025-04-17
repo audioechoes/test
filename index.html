@@ -8,49 +8,33 @@
     html, body {
       margin: 0;
       padding: 0;
+      font-family: monospace;
       background: white;
       color: black;
-      font-family: monospace;
       overflow: hidden;
       height: 100vh;
-    }
-    #gameWrapper {
-      width: 100vw;
-      height: 600px;
-      position: relative;
     }
     canvas {
       width: 100%;
       height: 100%;
-      background: transparent;
       display: block;
     }
-    #startScreen, .overlay {
+    .screen {
       position: absolute;
       top: 0; left: 0;
       width: 100%;
       height: 100%;
       background: white;
+      z-index: 10;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      z-index: 10;
-      text-align: center;
       padding: 20px;
       box-sizing: border-box;
     }
-    #startScreen pre {
-      text-align: left;
-      max-width: 600px;
-    }
-    button {
-      margin-top: 20px;
-      padding: 10px 16px;
-      background: transparent;
-      border: 1px solid black;
-      font-family: monospace;
-      cursor: pointer;
+    .screen.hidden {
+      display: none;
     }
     .popup {
       position: absolute;
@@ -63,178 +47,136 @@
       from { opacity: 1; transform: translateY(0); }
       to { opacity: 0; transform: translateY(-30px); }
     }
-    #mobileControls {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      height: 60px;
-      display: none;
-      z-index: 9;
-      display: flex;
-      justify-content: space-between;
-      background: white;
-      border-top: 1px dashed black;
-    }
-    .control-btn {
-      flex: 1;
-      font-size: 24px;
-      text-align: center;
-      user-select: none;
-      padding: 10px 0;
-      border-right: 1px dashed black;
-    }
-    .control-btn:last-child {
-      border-right: none;
+    .btn {
+      margin-top: 20px;
+      padding: 8px 16px;
+      border: 1px solid black;
+      background: transparent;
+      font-family: monospace;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <div id="gameWrapper">
-    <div id="startScreen">
-      <h1>TAMABRICKCHI</h1>
-      <pre>
-HOW TO PLAY (not that it’ll save you)
+  <div id="boot" class="screen">
+    <div id="bootText"></div>
+    <button id="bootStart" class="btn" style="display:none;">START NOW</button>
+  </div>
 
-Use ← / → to drag your sad little paddle through the void
-Tap LEFT or RIGHT if you're stuck in mobile purgatory
-Press SPACE to launch the ball and your fleeting sense of purpose
-Break all the AUDIO and ECHOES blocks because silence is worse
-Gain +1 second for every block you hit
-Game over if time runs out or you drop the ball
-Which, let’s face it, we all do eventually
-      </pre>
-      <button id="startButton">START</button>
-    </div>
+  <div id="start" class="screen hidden">
+    <h1>TAMABRICKCHI</h1>
+    <pre>
+HOW TO PLAY
+Use ← / → to drag paddle
+SPACE to launch
+Try to break blocks.
+Failing is fine.
+    </pre>
+    <button id="startButton" class="btn">START</button>
+  </div>
 
-    <canvas id="gameCanvas"></canvas>
+  <canvas id="gameCanvas"></canvas>
 
-    <div id="mobileControls">
-      <div id="leftBtn" class="control-btn">◀</div>
-      <div id="rightBtn" class="control-btn">▶</div>
-    </div>
+  <div id="win" class="screen hidden">
+    <h1>YOU WIN</h1>
+    <p>Nothing left<br>Nothing gained</p>
+    <button class="btn" onclick="location.reload()">Play again?</button>
+  </div>
 
-    <div id="winScreen" class="overlay" style="display:none;">
-      <h1>YOU WIN</h1>
-      <p>Nothing left<br>Nothing gained</p>
-      <button onclick="location.reload()">Play again?</button>
-    </div>
-
-    <div id="loseScreen" class="overlay" style="display:none;">
-      <h1>YOU LOSE</h1>
-      <p>Time wins<br>You didn't</p>
-      <button onclick="location.reload()">Retry?</button>
-    </div>
+  <div id="lose" class="screen hidden">
+    <h1>YOU LOSE</h1>
+    <p>Time wins<br>You didn't</p>
+    <button class="btn" onclick="location.reload()">Retry?</button>
   </div>
 
   <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    let width, height;
-    let blocks = [], blockW, blockH = 48, rows = 2, cols = 8;
-    let paddle = {}, ball = {}, timer = 30;
-    let isLeft = false, isRight = false, launched = false;
-    let gameLoop, timerLoop;
+    const bootLines = [
+      "T", " A", "  M", "   A", "    B", "     R", "      I", "       C", "        K", "         C", "          H", "           I",
+      "",
+      "> System booting",
+      "> Nothing to save",
+      "> Nothing to load",
+      "> Paddle linked",
+      "> Ball containment... unstable",
+      "> Echoes detected",
+      "> Begin if you must_"
+    ];
 
-    function resizeCanvas() {
-      width = canvas.clientWidth;
-      height = canvas.clientHeight;
-      canvas.width = width;
-      canvas.height = height;
-    }
-
-    function resetGame() {
-      paddle = {
-        w: width / 5,
-        h: 18,
-        x: width / 2 - width / 10,
-        y: height - 60,
-        speed: 6
-      };
-      ball = {
-        x: width / 2,
-        y: paddle.y - 12,
-        r: 6,
-        dx: 5,
-        dy: -5
-      };
-      timer = 30;
-      launched = false;
-      generateBlocks();
-    }
-
-    function generateBlocks() {
-      blocks = [];
-      blockW = width / cols;
-      const words = ['AUDIO', 'ECHOES'];
-      for (let r = 0; r < rows; r++) {
-        let row = [];
-        for (let c = 0; c < cols; c++) {
-          const word = words[(r * cols + c) % words.length];
-          row.push({
-            x: c * blockW,
-            y: 30 + r * blockH,
-            text: word,
-            hit: false
-          });
-        }
-        blocks.push(row);
+    const bootText = document.getElementById('bootText');
+    const bootBtn = document.getElementById('bootStart');
+    let bootIndex = 0;
+    function typeBoot() {
+      if (bootIndex < bootLines.length) {
+        const line = document.createElement('div');
+        line.textContent = bootLines[bootIndex++];
+        bootText.appendChild(line);
+        setTimeout(typeBoot, 150);
+      } else {
+        bootBtn.style.display = 'inline-block';
       }
     }
+    typeBoot();
 
-    function drawBlocks() {
-      ctx.font = `${blockH * 0.4}px monospace`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      blocks.forEach(row => row.forEach(b => {
-        if (!b.hit) {
-          ctx.strokeStyle = 'black';
-          ctx.strokeRect(b.x, b.y, blockW, blockH);
-          ctx.fillStyle = 'black';
-          ctx.fillText(b.text, b.x + blockW / 2, b.y + blockH / 2);
+    bootBtn.onclick = () => {
+      document.getElementById('boot').classList.add('hidden');
+      document.getElementById('start').classList.remove('hidden');
+    };
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let width, height, paddle, ball, blocks = [], launched = false, isLeft = false, isRight = false;
+    let timer = 30, loopHandle, timerHandle;
+
+    function resize() {
+      width = canvas.width = canvas.clientWidth;
+      height = canvas.height = canvas.clientHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function startGame() {
+      document.getElementById('start').classList.add('hidden');
+      resetGame();
+      loopHandle = requestAnimationFrame(loop);
+      timerHandle = setInterval(() => {
+        if (launched) {
+          timer--;
+          if (timer <= 0) endGame(false);
         }
-      }));
+      }, 1000);
     }
 
-    function drawExplosion(x, y) {
-      ctx.fillStyle = 'red';
-      ctx.beginPath();
-      ctx.arc(x, y, 12, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = 'orange';
-      ctx.beginPath();
-      ctx.arc(x, y, 6, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    document.getElementById('startButton').onclick = startGame;
 
-    function showPopup(x, y, text) {
-      const p = document.createElement('div');
-      p.className = 'popup';
-      p.textContent = text;
-      p.style.left = x + 'px';
-      p.style.top = y + 'px';
-      document.body.appendChild(p);
-      setTimeout(() => p.remove(), 600);
-    }
-
-    function drawPaddleTimer() {
-      ctx.fillStyle = 'black';
-      ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
-      ctx.font = '12px monospace';
-      ctx.fillStyle = 'white';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(`${timer}s`, paddle.x + paddle.w / 2, paddle.y + paddle.h / 2);
+    function resetGame() {
+      paddle = { w: width / 5, h: 18, x: width / 2 - width / 10, y: height - 60, speed: 6 };
+      ball = { x: width / 2, y: paddle.y - 12, r: 6, dx: 5, dy: -5 };
+      timer = 30;
+      launched = false;
+      blocks = [];
+      const blockW = width / 8, blockH = 48;
+      for (let r = 0; r < 2; r++) {
+        for (let c = 0; c < 8; c++) {
+          blocks.push({ x: c * blockW, y: 30 + r * blockH, w: blockW, h: blockH, hit: false });
+        }
+      }
     }
 
     function draw() {
       ctx.clearRect(0, 0, width, height);
-      drawBlocks();
-      drawPaddleTimer();
+      ctx.fillStyle = 'black';
+      blocks.forEach(b => {
+        if (!b.hit) {
+          ctx.strokeRect(b.x, b.y, b.w, b.h);
+        }
+      });
+      ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
-      ctx.fillStyle = 'black';
       ctx.fill();
+      ctx.font = '12px monospace';
+      ctx.fillStyle = 'white';
+      ctx.fillText(`${timer}s`, paddle.x + paddle.w / 2, paddle.y + paddle.h / 2);
     }
 
     function update() {
@@ -246,8 +188,6 @@ Which, let’s face it, we all do eventually
         ball.y += ball.dy;
       }
 
-      if (blocks.flat().every(b => b.hit)) return endGame(true);
-
       if (isLeft) paddle.x -= paddle.speed;
       if (isRight) paddle.x += paddle.speed;
       paddle.x = Math.max(0, Math.min(width - paddle.w, paddle.x));
@@ -255,72 +195,61 @@ Which, let’s face it, we all do eventually
       if (ball.x <= ball.r || ball.x >= width - ball.r) ball.dx *= -1;
       if (ball.y <= ball.r) ball.dy *= -1;
 
-      if (ball.y + ball.r >= paddle.y &&
-          ball.x >= paddle.x &&
-          ball.x <= paddle.x + paddle.w) {
+      if (
+        ball.y + ball.r >= paddle.y &&
+        ball.x >= paddle.x &&
+        ball.x <= paddle.x + paddle.w
+      ) {
         ball.dy *= -1;
         ball.y = paddle.y - ball.r;
       }
 
-      blocks.forEach(row => row.forEach(b => {
+      blocks.forEach(b => {
         if (!b.hit &&
-            ball.x >= b.x && ball.x <= b.x + blockW &&
-            ball.y >= b.y && ball.y <= b.y + blockH) {
+            ball.x >= b.x && ball.x <= b.x + b.w &&
+            ball.y >= b.y && ball.y <= b.y + b.h) {
           b.hit = true;
           ball.dy *= -1;
           timer++;
-          drawExplosion(ball.x, ball.y);
-          showPopup(ball.x, ball.y, "+1 Second");
+          showPopup(ball.x, ball.y, '+1 Second');
         }
-      }));
+      });
 
       if (ball.y > height) endGame(false);
+      if (blocks.every(b => b.hit)) endGame(true);
     }
 
     function loop() {
       update();
       draw();
-      gameLoop = requestAnimationFrame(loop);
+      loopHandle = requestAnimationFrame(loop);
     }
 
     function endGame(win) {
-      cancelAnimationFrame(gameLoop);
-      clearInterval(timerLoop);
-      document.getElementById(win ? 'winScreen' : 'loseScreen').style.display = 'flex';
+      cancelAnimationFrame(loopHandle);
+      clearInterval(timerHandle);
+      document.getElementById(win ? 'win' : 'lose').classList.remove('hidden');
     }
 
-    document.getElementById('startButton').addEventListener('click', () => {
-      document.getElementById('startScreen').style.display = 'none';
-      resizeCanvas();
-      resetGame();
-      loop();
-      timerLoop = setInterval(() => {
-        if (launched) {
-          timer--;
-          if (timer <= 0) endGame(false);
-        }
-      }, 1000);
-    });
+    function showPopup(x, y, text) {
+      const el = document.createElement('div');
+      el.className = 'popup';
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      el.textContent = text;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 600);
+    }
 
     window.addEventListener('keydown', e => {
       if (e.key === 'ArrowLeft') isLeft = true;
       if (e.key === 'ArrowRight') isRight = true;
       if (e.key === ' ' && !launched) launched = true;
     });
-
     window.addEventListener('keyup', e => {
       if (e.key === 'ArrowLeft') isLeft = false;
       if (e.key === 'ArrowRight') isRight = false;
     });
-
-    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    if (isTouch) {
-      document.getElementById('mobileControls').style.display = 'flex';
-      document.getElementById('leftBtn').addEventListener('touchstart', () => isLeft = true);
-      document.getElementById('leftBtn').addEventListener('touchend', () => isLeft = false);
-      document.getElementById('rightBtn').addEventListener('touchstart', () => isRight = true);
-      document.getElementById('rightBtn').addEventListener('touchend', () => isRight = false);
-    }
   </script>
 </body>
 </html>

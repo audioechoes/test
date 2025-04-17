@@ -1,34 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
   <title>Tamabrickchi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     html, body {
       margin: 0;
       padding: 0;
+      font-family: monospace;
       background: white;
       color: black;
-      font-family: monospace;
-      overflow: hidden;
       height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      overflow: hidden;
     }
     #gameWrapper {
       width: 100vw;
       height: 600px;
-      max-width: 100%;
-      border: 2px dashed black;
+      border: 1px dashed black;
       position: relative;
-      overflow: hidden;
     }
     canvas {
       width: 100%;
       height: 100%;
       display: block;
+      background: white;
     }
     #startScreen {
       position: absolute;
@@ -36,17 +32,18 @@
       width: 100%;
       height: 100%;
       background: white;
-      border-bottom: 2px dashed black;
+      border-bottom: 1px dashed black;
       z-index: 10;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      font-family: monospace;
+      font-size: 14px;
     }
-    #startButton {
-      padding: 10px 20px;
-      border: 2px dashed black;
+    #startButton, #fullscreenBtn {
+      padding: 6px 12px;
+      margin: 5px;
+      border: 1px solid black;
       background: transparent;
       font-family: monospace;
       cursor: pointer;
@@ -57,17 +54,15 @@
       width: 100%;
       display: none;
       justify-content: space-between;
-      padding: 5px;
       z-index: 5;
     }
     .control-btn {
       flex: 1;
-      border: 2px dashed black;
-      font-size: 2em;
-      text-align: center;
-      user-select: none;
+      border: 1px solid black;
       padding: 10px 0;
-      font-family: monospace;
+      text-align: center;
+      font-size: 24px;
+      user-select: none;
     }
   </style>
 </head>
@@ -75,8 +70,9 @@
   <div id="gameWrapper">
     <div id="startScreen">
       <h1 style="margin:0;">TAMABRICKCHI</h1>
-      <p style="text-align:center;">← → to move<br>Break all blocks before TIME runs out</p>
+      <p>← / → to move<br>SPACE to launch<br>Break AUDIO / ECHOES<br>+1s per block</p>
       <button id="startButton">START</button>
+      <button id="fullscreenBtn">FULLSCREEN</button>
     </div>
     <canvas id="gameCanvas"></canvas>
     <div id="mobileControls">
@@ -87,9 +83,9 @@
 
   <script>
     window.addEventListener('DOMContentLoaded', () => {
-      const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
       const canvas = document.getElementById('gameCanvas');
       const ctx = canvas.getContext('2d');
+      const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
       let width, height;
 
       function resizeCanvas() {
@@ -98,44 +94,49 @@
         canvas.width = width;
         canvas.height = height;
       }
-
-      window.addEventListener('resize', resizeCanvas);
       resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
 
-      let paddle = {}, ball = {}, blocks = [], rows = 2, cols = 8, blockW, blockH = 48;
-      let timer = 30, isLeft = false, isRight = false;
-      let frameLoop, timerLoop;
-      const blockWords = ['BAD', 'UI', 'CHEAP', 'UGLY', 'CODE', 'BUG', 'VOID', 'NULL'];
+      let paddle = {}, ball = {}, blocks = [], blockW, blockH = 48;
+      let rows = 2, cols = 8;
+      let timer = 30;
+      let isLeft = false, isRight = false, launched = false;
+      let gameLoop, timerLoop;
+      const blockWords = ['AUDIO', 'ECHOES'];
 
       function resetGame() {
-        const offset = height * 0.1;
         paddle = {
-          w: width / 6,
+          w: width / 5,
           h: 10,
-          x: width / 2 - width / 12,
-          y: height - offset,
-          speed: 6
+          x: width / 2 - width / 10,
+          y: height - 60,
+          speed: 5
         };
         ball = {
           x: width / 2,
-          y: paddle.y - 16,
-          r: 7,
+          y: paddle.y - 12,
+          r: 6,
           dx: 3,
           dy: -3
         };
         timer = 30;
+        launched = false;
         generateBlocks();
       }
 
       function generateBlocks() {
         blocks = [];
         blockW = width / cols;
-        const offsetY = 30;
         for (let r = 0; r < rows; r++) {
           let row = [];
           for (let c = 0; c < cols; c++) {
-            let word = blockWords[(r * cols + c) % blockWords.length];
-            row.push({ x: c * blockW, y: offsetY + r * blockH, text: word, hit: false });
+            const word = blockWords[(r * cols + c) % blockWords.length];
+            row.push({
+              x: c * blockW,
+              y: 30 + r * blockH,
+              text: word,
+              hit: false
+            });
           }
           blocks.push(row);
         }
@@ -147,8 +148,6 @@
         ctx.textBaseline = 'middle';
         blocks.forEach(row => row.forEach(b => {
           if (!b.hit) {
-            ctx.fillStyle = 'white';
-            ctx.fillRect(b.x, b.y, blockW, blockH);
             ctx.strokeStyle = 'black';
             ctx.strokeRect(b.x, b.y, blockW, blockH);
             ctx.fillStyle = 'black';
@@ -165,23 +164,32 @@
         ctx.beginPath();
         ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
         ctx.fill();
-        ctx.font = 'bold 16px monospace';
-        ctx.fillText(`TIME: ${timer}s`, width / 2, 12);
+        ctx.font = '14px monospace';
+        ctx.fillText(`TIME: ${timer}s`, 10, 10);
       }
 
       function update() {
-        if (blocks.flat().every(b => b.hit)) endGame("YOU WIN!");
+        if (!launched) {
+          ball.x = paddle.x + paddle.w / 2;
+          ball.y = paddle.y - ball.r;
+        } else {
+          ball.x += ball.dx;
+          ball.y += ball.dy;
+        }
+
+        if (blocks.flat().every(b => b.hit)) endGame("You Win!");
         if (isLeft) paddle.x -= paddle.speed;
         if (isRight) paddle.x += paddle.speed;
         paddle.x = Math.max(0, Math.min(width - paddle.w, paddle.x));
 
-        ball.x += ball.dx;
-        ball.y += ball.dy;
-
         if (ball.x <= ball.r || ball.x >= width - ball.r) ball.dx *= -1;
         if (ball.y <= ball.r) ball.dy *= -1;
 
-        if (ball.y + ball.r >= paddle.y && ball.x >= paddle.x && ball.x <= paddle.x + paddle.w) {
+        if (
+          ball.y + ball.r >= paddle.y &&
+          ball.x >= paddle.x &&
+          ball.x <= paddle.x + paddle.w
+        ) {
           ball.dy *= -1;
           ball.y = paddle.y - ball.r;
         }
@@ -196,31 +204,30 @@
           }
         }));
 
-        if (ball.y > height) endGame("GAME OVER");
+        if (ball.y > height) endGame("Game Over");
       }
 
       function loop() {
         update();
         draw();
-        frameLoop = requestAnimationFrame(loop);
+        gameLoop = requestAnimationFrame(loop);
       }
 
       function startGame() {
         document.getElementById('startScreen').style.display = 'none';
-        document.getElementById('startButton').disabled = true;
         resetGame();
         loop();
         timerLoop = setInterval(() => {
-          timer--;
-          if (timer <= 0) endGame("OUT OF TIME");
+          if (launched) timer--;
+          if (timer <= 0) endGame("Time's Up");
         }, 1000);
       }
 
-      function endGame(msg) {
-        cancelAnimationFrame(frameLoop);
+      function endGame(message) {
+        cancelAnimationFrame(gameLoop);
         clearInterval(timerLoop);
         setTimeout(() => {
-          alert(msg);
+          alert(message);
           location.reload();
         }, 100);
       }
@@ -230,27 +237,34 @@
       window.addEventListener('keydown', e => {
         if (e.key === 'ArrowLeft') isLeft = true;
         if (e.key === 'ArrowRight') isRight = true;
+        if (e.key === ' ' && !launched) launched = true;
       });
       window.addEventListener('keyup', e => {
         if (e.key === 'ArrowLeft') isLeft = false;
         if (e.key === 'ArrowRight') isRight = false;
       });
 
+      // Touch support
       if (isTouch) {
         document.getElementById('mobileControls').style.display = 'flex';
         const left = document.getElementById('leftBtn');
         const right = document.getElementById('rightBtn');
 
-        const set = (dir, val) => {
-          if (dir === 'left') isLeft = val;
-          if (dir === 'right') isRight = val;
-        };
-
-        left.addEventListener('touchstart', () => set('left', true));
-        left.addEventListener('touchend', () => set('left', false));
-        right.addEventListener('touchstart', () => set('right', true));
-        right.addEventListener('touchend', () => set('right', false));
+        left.addEventListener('touchstart', () => isLeft = true);
+        left.addEventListener('touchend', () => isLeft = false);
+        right.addEventListener('touchstart', () => isRight = true);
+        right.addEventListener('touchend', () => isRight = false);
       }
+
+      // Fullscreen
+      document.getElementById('fullscreenBtn').addEventListener('click', () => {
+        const el = document.documentElement;
+        if (!document.fullscreenElement) {
+          el.requestFullscreen().catch(err => console.log(err));
+        } else {
+          document.exitFullscreen();
+        }
+      });
     });
   </script>
 </body>

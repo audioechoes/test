@@ -1,154 +1,93 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Tamabrickchi</title>
   <style>
     html, body {
       margin: 0;
       padding: 0;
-      background: transparent;
+      background: white;
       color: black;
       font-family: monospace;
       overflow: hidden;
-      box-sizing: border-box;
       height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
     }
     #gameWrapper {
-      position: relative;
       width: 100vw;
       height: 600px;
-      max-width: 1400px;
-      margin: auto;
-      border: 1px solid black;
-      box-sizing: border-box;
+      max-width: 100%;
+      border: 2px dashed black;
+      position: relative;
       overflow: hidden;
-      background: transparent;
     }
     canvas {
-      display: block;
       width: 100%;
       height: 100%;
-      margin: 0;
-      object-fit: cover;
+      display: block;
     }
-    
-    #startScreen, #endScreen {
+    #startScreen {
       position: absolute;
       top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(255,255,255,0.9);
+      width: 100%;
+      height: 100%;
+      background: white;
+      border-bottom: 2px dashed black;
+      z-index: 10;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      z-index: 10;
-      font-weight: normal;
       font-family: monospace;
     }
-    #startScreen button, #endScreen button {
-      padding: 1em 2em;
-      font-size: 1.2em;
+    #startButton {
+      padding: 10px 20px;
+      border: 2px dashed black;
       background: transparent;
-      color: black;
-      border: 1px solid black;
-      border-radius: 4px;
+      font-family: monospace;
       cursor: pointer;
     }
-    #mobileControls {
-      display: none;
-    }
-
-    @media (max-width: 768px) {
     #mobileControls {
       position: absolute;
       bottom: 0;
       width: 100%;
-      display: flex;
+      display: none;
       justify-content: space-between;
-      padding: 10px 20px;
+      padding: 5px;
       z-index: 5;
-      box-sizing: border-box;
-      height: 60px;
     }
-    .touchBtn {
-      background: transparent;
-      color: black;
-      font-size: 2em;
+    .control-btn {
       flex: 1;
+      border: 2px dashed black;
+      font-size: 2em;
       text-align: center;
-      padding: 10px 0;
-      border-radius: 4px;
-      border: 1px solid black;
       user-select: none;
-      opacity: 0.8;
-      margin: 0 5px;
-      max-height: 100%;
-    }
-    #countdownOverlay {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 5em;
-      pointer-events: none;
-      z-index: 20;
+      padding: 10px 0;
       font-family: monospace;
     }
-    #plusOne {
-      position: absolute;
-      top: 30px;
-      right: 10px;
-      font-size: 1em;
-      font-family: monospace;
-      background: black;
-      color: white;
-      padding: 2px 6px;
-      border-radius: 4px;
-      opacity: 0;
-      transition: opacity 0.4s ease-out, transform 0.4s ease-out;
-    }
-  @media (orientation: portrait) {
-    #gameWrapper {
-      height: 90vh;
-      width: 100vw;
-      max-width: 100%;
-    }
-  }
-</style>
+  </style>
 </head>
 <body>
   <div id="gameWrapper">
     <div id="startScreen">
-      <h1>Tamabrickchi</h1>
-      <p>Use arrow keys or touch buttons to move the paddle.<br>Clear blocks before the timer ends.</p>
-      <button id="startButton">Start</button>
+      <h1 style="margin:0;">TAMABRICKCHI</h1>
+      <p style="text-align:center;">← → to move<br>Break all blocks before TIME runs out</p>
+      <button id="startButton">START</button>
     </div>
-
     <canvas id="gameCanvas"></canvas>
     <div id="mobileControls">
-      <div class="touchBtn" id="leftBtn">◀</div>
-      <div class="touchBtn" id="rightBtn">▶</div>
-    </div>
-    <div id="countdownOverlay"></div>
-    <div id="plusOne">+1 second</div>
-
-    <div id="endScreen" style="display:none">
-      <h1>Game Over</h1>
-      <button id="restartButton">Restart</button>
+      <div id="leftBtn" class="control-btn">◀</div>
+      <div id="rightBtn" class="control-btn">▶</div>
     </div>
   </div>
 
   <script>
     window.addEventListener('DOMContentLoaded', () => {
-      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-      if (isTouchDevice) {
-        document.getElementById('mobileControls').style.display = 'flex';
-      }
+      const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
       const canvas = document.getElementById('gameCanvas');
       const ctx = canvas.getContext('2d');
       let width, height;
@@ -159,90 +98,79 @@
         canvas.width = width;
         canvas.height = height;
       }
+
       window.addEventListener('resize', resizeCanvas);
       resizeCanvas();
 
-      let paddle = {}, ball = {}, blocks = [], rows = 2, cols = 10, blockW, blockH = 48;
+      let paddle = {}, ball = {}, blocks = [], rows = 2, cols = 8, blockW, blockH = 48;
       let timer = 30, isLeft = false, isRight = false;
-      let gameInterval, timerInterval;
-      const blockWords = ['AUDIO', 'ECHOES'];
+      let frameLoop, timerLoop;
+      const blockWords = ['BAD', 'UI', 'CHEAP', 'UGLY', 'CODE', 'BUG', 'VOID', 'NULL'];
 
       function resetGame() {
-        const controlOffset = height * 0.12;
-        const paddleY = height - controlOffset;
+        const offset = height * 0.1;
         paddle = {
           w: width / 6,
           h: 10,
           x: width / 2 - width / 12,
-          y: paddleY, speed: 7 };
+          y: height - offset,
+          speed: 6
+        };
         ball = {
           x: width / 2,
-          y: paddle.y - 24, r: 8, dx: 4, dy: -4 };
+          y: paddle.y - 16,
+          r: 7,
+          dx: 3,
+          dy: -3
+        };
         timer = 30;
         generateBlocks();
-        startGame();
       }
 
       function generateBlocks() {
         blocks = [];
         blockW = width / cols;
-        const totalBlockHeight = rows * blockH;
-        const offsetY = Math.max((height - totalBlockHeight - 100) / 2, 20);
+        const offsetY = 30;
         for (let r = 0; r < rows; r++) {
-          const row = [];
+          let row = [];
           for (let c = 0; c < cols; c++) {
-            const text = blockWords[(c + r) % blockWords.length];
-            row.push({ x: c * blockW, y: offsetY + r * blockH, text, hit: false });
+            let word = blockWords[(r * cols + c) % blockWords.length];
+            row.push({ x: c * blockW, y: offsetY + r * blockH, text: word, hit: false });
           }
           blocks.push(row);
         }
       }
 
-      function beginCountdown() {
-        const overlay = document.getElementById('countdownOverlay');
-        let count = 3;
-        overlay.innerText = count;
-        const interval = setInterval(() => {
-          count--;
-          if (count > 0) overlay.innerText = count;
-          else {
-            clearInterval(interval);
-            overlay.innerText = '';
-            document.getElementById('startScreen').style.display = 'none';
-            resetGame();
-          }
-        }, 1000);
-      }
-
-      function drawClock() {
-        ctx.font = '16px monospace';
-        ctx.fillStyle = 'black';
-        ctx.fillText(`TIME: ${timer}s`, width - 140, 36);
-      }
-
       function drawBlocks() {
-        const scaleFactor = Math.min(width / 1400, 1);
-        const dynamicFontSize = Math.min(blockW * 0.8, blockH * 1.2) * scaleFactor;
-        ctx.font = `${dynamicFontSize}px monospace`;
+        ctx.font = `${blockH * 0.4}px monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         blocks.forEach(row => row.forEach(b => {
-          if (!b.hit) ctx.fillText(b.text, b.x + blockW / 2, b.y + blockH / 2);
+          if (!b.hit) {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(b.x, b.y, blockW, blockH);
+            ctx.strokeStyle = 'black';
+            ctx.strokeRect(b.x, b.y, blockW, blockH);
+            ctx.fillStyle = 'black';
+            ctx.fillText(b.text, b.x + blockW / 2, b.y + blockH / 2);
+          }
         }));
       }
 
       function draw() {
         ctx.clearRect(0, 0, width, height);
         drawBlocks();
-        drawClock();
+        ctx.fillStyle = 'black';
         ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
         ctx.beginPath();
         ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
         ctx.fill();
+        ctx.font = 'bold 16px monospace';
+        ctx.fillText(`TIME: ${timer}s`, width / 2, 12);
       }
 
       function update() {
-        if (blocks.flat().every(b => b.hit)) endGame();
+        if (blocks.flat().every(b => b.hit)) endGame("YOU WIN!");
         if (isLeft) paddle.x -= paddle.speed;
         if (isRight) paddle.x += paddle.speed;
         paddle.x = Math.max(0, Math.min(width - paddle.w, paddle.x));
@@ -259,55 +187,46 @@
         }
 
         blocks.forEach(row => row.forEach(b => {
-          if (!b.hit && ball.x >= b.x && ball.x <= b.x + blockW && ball.y - ball.r <= b.y + blockH && ball.y + ball.r >= b.y) {
+          if (!b.hit &&
+              ball.x >= b.x && ball.x <= b.x + blockW &&
+              ball.y >= b.y && ball.y <= b.y + blockH) {
             b.hit = true;
             ball.dy *= -1;
             timer++;
-            showPlusOne();
           }
         }));
 
-        if (ball.y > height) endGame();
+        if (ball.y > height) endGame("GAME OVER");
       }
 
       function loop() {
         update();
         draw();
+        frameLoop = requestAnimationFrame(loop);
       }
 
       function startGame() {
-        gameInterval = setInterval(loop, 1000 / 60);
-        timerInterval = setInterval(() => {
+        document.getElementById('startScreen').style.display = 'none';
+        document.getElementById('startButton').disabled = true;
+        resetGame();
+        loop();
+        timerLoop = setInterval(() => {
           timer--;
-          if (timer <= 0) endGame();
+          if (timer <= 0) endGame("OUT OF TIME");
         }, 1000);
       }
 
-      function showPlusOne() {
-        const plus = document.getElementById('plusOne');
-        plus.style.opacity = 1;
-        plus.style.transform = 'translateY(-10px)';
+      function endGame(msg) {
+        cancelAnimationFrame(frameLoop);
+        clearInterval(timerLoop);
         setTimeout(() => {
-          plus.style.opacity = 0;
-          plus.style.transform = 'translateY(0)';
-        }, 400);
+          alert(msg);
+          location.reload();
+        }, 100);
       }
 
-      function endGame() {
-        clearInterval(gameInterval);
-        clearInterval(timerInterval);
-        document.getElementById('endScreen').style.display = 'flex';
-      }
+      document.getElementById('startButton').addEventListener('click', startGame);
 
-      document.getElementById('startButton').addEventListener('click', beginCountdown);
-      document.getElementById('restartButton').addEventListener('click', () => {
-        document.getElementById('endScreen').style.display = 'none';
-        beginCountdown();
-      });
-      document.getElementById('leftBtn').addEventListener('touchstart', () => isLeft = true);
-      document.getElementById('leftBtn').addEventListener('touchend', () => isLeft = false);
-      document.getElementById('rightBtn').addEventListener('touchstart', () => isRight = true);
-      document.getElementById('rightBtn').addEventListener('touchend', () => isRight = false);
       window.addEventListener('keydown', e => {
         if (e.key === 'ArrowLeft') isLeft = true;
         if (e.key === 'ArrowRight') isRight = true;
@@ -316,5 +235,23 @@
         if (e.key === 'ArrowLeft') isLeft = false;
         if (e.key === 'ArrowRight') isRight = false;
       });
+
+      if (isTouch) {
+        document.getElementById('mobileControls').style.display = 'flex';
+        const left = document.getElementById('leftBtn');
+        const right = document.getElementById('rightBtn');
+
+        const set = (dir, val) => {
+          if (dir === 'left') isLeft = val;
+          if (dir === 'right') isRight = val;
+        };
+
+        left.addEventListener('touchstart', () => set('left', true));
+        left.addEventListener('touchend', () => set('left', false));
+        right.addEventListener('touchstart', () => set('right', true));
+        right.addEventListener('touchend', () => set('right', false));
+      }
     });
   </script>
+</body>
+</html>

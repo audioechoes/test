@@ -1,324 +1,462 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Tamabrickchi</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <title>tamabrickchi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300&display=swap" rel="stylesheet" />
   <style>
     html, body {
       margin: 0;
       padding: 0;
-      font-family: monospace;
+      font-family: 'Urbanist', sans-serif;
       background: white;
       color: black;
       overflow: hidden;
       height: 100vh;
+      text-transform: lowercase;
+      font-weight: 300;
     }
-    canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-    .screen {
+
+    .centered {
       position: absolute;
-      top: 0; left: 0;
-      width: 100%;
-      height: 100%;
-      background: white;
-      z-index: 10;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-      box-sizing: border-box;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
     }
-    .screen.hidden {
-      display: none;
+
+    .centered h1 {
+      font-size: 22px;
+      letter-spacing: 3px;
+      margin-bottom: 1em;
     }
-    .popup {
-      position: absolute;
-      font-size: 12px;
-      color: black;
-      pointer-events: none;
-      animation: floatUp 0.6s ease-out forwards;
+
+    .centered .sub {
+      font-size: 13px;
+      opacity: 0.5;
     }
-    @keyframes floatUp {
-      from { opacity: 1; transform: translateY(0); }
-      to { opacity: 0; transform: translateY(-30px); }
-    }
-    .btn {
-      margin-top: 20px;
-      padding: 8px 16px;
+
+    .go {
+      margin-top: 2em;
+      cursor: pointer;
+      padding: 10px 20px;
       border: 1px solid black;
       background: transparent;
-      font-family: monospace;
-      cursor: pointer;
+      color: black;
+      font-size: 13px;
+      display: inline-block;
+      text-decoration: none;
     }
-    #countdownFake {
+
+    .go:hover {
+      background: black;
+      color: white;
+    }
+
+    .boot-lines {
       position: absolute;
-      top: 0;
-      right: 0;
-      padding: 4px 8px;
-      font-size: 12px;
+      top: 20px;
+      left: 20px;
+      font-size: 11px;
+      color: black;
+      white-space: pre-wrap;
+      line-height: 1.5;
+      font-family: 'Courier New', monospace;
     }
-    #assistant {
+
+    .build {
       position: absolute;
       bottom: 10px;
-      left: 10px;
-      font-size: 12px;
-      background: rgba(0,0,0,0.05);
-      padding: 6px 10px;
-      max-width: 180px;
+      right: 10px;
+      font-size: 10px;
+      opacity: 0.2;
     }
-    #helpBtn {
+
+    .cursor {
+      display: inline-block;
+      width: 1ch;
+      animation: blink 1s steps(2, start) infinite;
+    }
+
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    #countdownScreen {
       position: absolute;
-      top: 10px;
-      left: 10px;
-      border: 1px solid black;
+      inset: 0;
       background: white;
-      padding: 2px 6px;
-      cursor: pointer;
-      font-size: 14px;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      font-size: 40px;
+      font-weight: 300;
+      text-transform: lowercase;
+      animation: flash 0.3s ease-in-out 1;
+      z-index: 15;
     }
-    #helpModal {
+
+    @keyframes flash {
+      0%, 100% { background: white; color: black; }
+      50% { background: black; color: white; }
+    }
+
+    #mobileControls {
+      display: none;
       position: absolute;
-      top: 30%;
+      bottom: 0;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      z-index: 10;
+    }
+
+    .control-btn {
+      flex: 1;
+      padding: 20px;
+      text-align: center;
+      font-size: 18px;
+      background: white;
+      border-top: 1px solid black;
+      user-select: none;
+    }
+
+    #launchBtn {
+      position: absolute;
+      bottom: 80px;
       left: 50%;
       transform: translateX(-50%);
-      background: white;
+      font-size: 16px;
       border: 1px solid black;
-      padding: 20px;
-      font-size: 14px;
+      padding: 10px 20px;
+      background: white;
       display: none;
-      z-index: 9999;
+      z-index: 10;
+    }
+
+    .timer-overlay {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: monospace;
+      font-size: 16px;
+      z-index: 5;
+    }
+
+    .end-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      background: white;
+      font-size: 16px;
+      font-family: monospace;
+      z-index: 20;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      z-index: 1;
     }
   </style>
 </head>
 <body>
-  <div id="boot" class="screen">
-    <div id="bootText"></div>
-    <button id="bootStart" class="btn" style="display:none;">START NOW</button>
+  <div class="boot-lines" id="bootText"></div>
+
+  <div class="centered active" id="startScreen">
+    <h1>tamabrickchi</h1>
+    <div class="sub">barely a game. barely a point.</div>
+    <div class="go" onclick="showRules()">▶ rules of the "game"</div>
   </div>
 
-  <div id="start" class="screen hidden">
-    <h1>TAMABRICKCHI</h1>
-    <pre>
-HOW TO PLAY
-Use ← / → to drag paddle
-SPACE to launch
-Try to break blocks.
-Failing is fine.
-    </pre>
-    <button id="startButton" class="btn">START</button>
+  <div class="centered" id="rulesScreen" style="display:none">
+    <h2>instructions</h2>
+    <div class="sub">
+      move left or right. hit the bricks<br>
+      press space. launch the ball. it won’t thank you<br>
+      destroy blocks. each hit adds +1 second. it won’t be enough<br>
+      if the timer hits zero or the ball drops. same result: you lose.
+    </div>
+    <div class="go" onclick="startCountdown()">▶ begin anyway</div>
   </div>
 
+  <div id="countdownScreen">3</div>
   <canvas id="gameCanvas"></canvas>
-
-  <div id="win" class="screen hidden">
-    <h1>YOU WIN</h1>
-    <p>Nothing left<br>Nothing gained</p>
-    <button class="btn" onclick="location.reload()">Play again?</button>
+  <div id="mobileControls">
+    <div id="leftBtn" class="control-btn">◀</div>
+    <div id="rightBtn" class="control-btn">▶</div>
   </div>
-
-  <div id="lose" class="screen hidden">
-    <h1>YOU LOSE</h1>
-    <p>Time wins<br>You didn't</p>
-    <button class="btn" onclick="location.reload()">Retry?</button>
-  </div>
-
-  <div id="countdownFake">Analysing... 0%</div>
-  <div id="assistant">Awaiting your inevitable failure...</div>
-  <button id="helpBtn">?</button>
-  <div id="helpModal">
-    <p><strong>HELP?</strong> Honestly, just press stuff and hope.</p>
-    <button onclick="document.getElementById('helpModal').style.display='none'">Fine.</button>
-  </div>
+  <div id="launchBtn">launch</div>
+  <div class="timer-overlay" id="timerOverlay"></div>
+  <div class="end-overlay" id="endOverlay"></div>
+  <div class="build">build 0.0.1-alpha</div>
 
   <script>
-    const bootLines = [
-      "T", " A", "  M", "   A", "    B", "     R", "      I", "       C", "        K", "         C", "          H", "           I",
-      "",
-      "> System booting",
-      "> Nothing to save",
-      "> Nothing to load",
-      "> Paddle linked",
-      "> Ball containment... unstable",
-      "> Echoes detected",
-      "> Begin if you must_"
-    ];
+    document.addEventListener('DOMContentLoaded', () => {
+      const bootLines = [
+        'initialising challenge tv listings',
+        'booting snake ii',
+        'loading spiceworld.iso',
+        'extracting brass eye segment',
+        'setting oasis attitude level: maximum',
+        'blue peter badge auth granted',
+        'calibrating uk gold reruns'
+      ];
 
-    const bootText = document.getElementById('bootText');
-    const bootBtn = document.getElementById('bootStart');
-    let bootIndex = 0;
-    function typeBoot() {
-      if (bootIndex < bootLines.length) {
-        const line = document.createElement('div');
-        line.textContent = bootLines[bootIndex++];
-        bootText.appendChild(line);
-        setTimeout(typeBoot, 150);
-      } else {
-        bootBtn.style.display = 'inline-block';
-      }
-    }
-    typeBoot();
+      const bootEl = document.getElementById('bootText');
 
-    bootBtn.onclick = () => {
-      document.getElementById('boot').classList.add('hidden');
-      document.getElementById('start').classList.remove('hidden');
-    };
+      function typeLine(text, callback) {
+        let i = 0;
+        const span = document.createElement('div');
+        const cursor = document.createElement('span');
+        cursor.className = 'cursor';
+        cursor.textContent = '_';
+        span.textContent = '> ';
+        span.appendChild(cursor);
+        bootEl.appendChild(span);
 
-    document.getElementById('helpBtn').onclick = () => {
-      document.getElementById('helpModal').style.display = 'block';
-    };
-
-    const assistantPhrases = [
-      "Still going, are we?",
-      "Any idea what you're doing?",
-      "Bold of you to try again.",
-      "Hope isn’t a strategy, love.",
-      "You're not quitting? Curious."
-    ];
-
-    setInterval(() => {
-      document.getElementById('assistant').textContent = assistantPhrases[Math.floor(Math.random() * assistantPhrases.length)];
-    }, 8000);
-
-    setInterval(() => {
-      document.getElementById('countdownFake').textContent = `Analysing... ${Math.floor(Math.random() * 101)}%`;
-    }, 3000);
-
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    let width, height, paddle, ball, blocks = [], launched = false, isLeft = false, isRight = false;
-    let timer = 30, loopHandle, timerHandle;
-
-    function resize() {
-      width = canvas.width = canvas.clientWidth;
-      height = canvas.height = canvas.clientHeight;
-    }
-    window.addEventListener('resize', resize);
-    resize();
-
-    function startGame() {
-      document.getElementById('start').classList.add('hidden');
-      resetGame();
-      loopHandle = requestAnimationFrame(loop);
-      timerHandle = setInterval(() => {
-        if (launched) {
-          timer--;
-          if (timer <= 0) endGame(false);
+        function typeChar() {
+          if (i < text.length) {
+            span.insertBefore(document.createTextNode(text[i]), cursor);
+            i++;
+            setTimeout(typeChar, 30);
+          } else {
+            span.removeChild(cursor);
+            callback();
+          }
         }
-      }, 1000);
-    }
-
-    document.getElementById('startButton').onclick = startGame;
-
-    function resetGame() {
-      paddle = { w: width / 5, h: 18, x: width / 2 - width / 10, y: height - 60, speed: 6 };
-      ball = { x: width / 2, y: paddle.y - 12, r: 6, dx: 5, dy: -5 };
-      timer = 30;
-      launched = false;
-      blocks = [];
-      const blockW = width / 8, blockH = 48;
-      const blockWords = ['AUDIO', 'ECHOES'];
-      for (let r = 0; r < 2; r++) {
-        for (let c = 0; c < 8; c++) {
-          blocks.push({ x: c * blockW, y: 30 + r * blockH, w: blockW, h: blockH, hit: false, text: blockWords[(r * 8 + c) % blockWords.length] });
-        }
-      }
-    }
-
-    function draw() {
-      ctx.clearRect(0, 0, width, height);
-      ctx.font = '18px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      blocks.forEach(b => {
-        if (!b.hit) {
-          ctx.strokeRect(b.x, b.y, b.w, b.h);
-          ctx.fillText(b.text, b.x + b.w/2, b.y + b.h/2);
-        }
-      });
-      ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
-      ctx.beginPath();
-      ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.font = '14px monospace';
-      ctx.fillStyle = 'white';
-      ctx.fillText(`${timer}s`, paddle.x + paddle.w / 2, paddle.y + paddle.h / 2);
-    }
-
-    function update() {
-      if (!launched) {
-        ball.x = paddle.x + paddle.w / 2;
-        ball.y = paddle.y - ball.r;
-      } else {
-        ball.x += ball.dx;
-        ball.y += ball.dy;
+        typeChar();
       }
 
-      if (isLeft) paddle.x -= paddle.speed;
-      if (isRight) paddle.x += paddle.speed;
-      paddle.x = Math.max(0, Math.min(width - paddle.w, paddle.x));
-
-      if (ball.x <= ball.r || ball.x >= width - ball.r) ball.dx *= -1;
-      if (ball.y <= ball.r) ball.dy *= -1;
-
-      if (
-        ball.y + ball.r >= paddle.y &&
-        ball.x >= paddle.x &&
-        ball.x <= paddle.x + paddle.w
-      ) {
-        ball.dy *= -1;
-        ball.y = paddle.y - ball.r;
+      function startTyping(line = 0) {
+        if (line < bootLines.length) {
+          typeLine(bootLines[line], () => startTyping(line + 1));
+        }
       }
 
-      blocks.forEach(b => {
-        if (!b.hit &&
-            ball.x >= b.x && ball.x <= b.x + b.w &&
-            ball.y >= b.y && ball.y <= b.y + b.h) {
-          b.hit = true;
-          ball.dy *= -1;
-          timer++;
-          showPopup(ball.x, ball.y, '+1 Second');
+      startTyping();
+
+      window.showRules = () => {
+        document.getElementById('startScreen').style.display = 'none';
+        document.getElementById('rulesScreen').style.display = 'block';
+      };
+
+      window.startCountdown = () => {
+        const countdown = document.getElementById('countdownScreen');
+        document.getElementById('rulesScreen').style.display = 'none';
+        countdown.style.display = 'flex';
+
+        const steps = ['3', '2', '1'];
+        let i = 0;
+
+        const tick = () => {
+          countdown.textContent = steps[i];
+          countdown.style.animation = 'none';
+          countdown.offsetHeight;
+          countdown.style.animation = 'flash 0.3s ease-in-out';
+          i++;
+          if (i < steps.length) {
+            setTimeout(tick, 500);
+          } else {
+            setTimeout(() => {
+              countdown.textContent = 'start.';
+              countdown.style.animation = 'flash 0.2s ease-in-out';
+              setTimeout(() => {
+                countdown.style.display = 'none';
+                document.getElementById('gameCanvas').style.display = 'block';
+                startGame();
+              }, 500);
+            }, 500);
+          }
+        };
+
+        tick();
+      };
+
+      function startGame() {
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('timerOverlay');
+        const endScreen = document.getElementById('endOverlay');
+        const mobileControls = document.getElementById('mobileControls');
+        const launchBtn = document.getElementById('launchBtn');
+
+        const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+        let width, height, loopId;
+        let timer = 30;
+        let isLeft = false, isRight = false;
+        let launched = false;
+        let paddle, ball, blocks = [];
+        const blockWords = ['audio', 'echoes'];
+
+        function resize() {
+          const dpr = window.devicePixelRatio || 1;
+          width = canvas.width = window.innerWidth * dpr;
+          height = canvas.height = window.innerHeight * dpr;
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
-      });
 
-      if (ball.y > height) endGame(false);
-      if (blocks.every(b => b.hit)) endGame(true);
-    }
+        function generateBlocks() {
+          const cols = 8, rows = 2;
+          const blockW = width / cols;
+          const blockH = 48;
+          blocks = [];
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              blocks.push({
+                x: c * blockW,
+                y: 30 + r * blockH,
+                w: blockW,
+                h: blockH,
+                text: blockWords[(r * cols + c) % blockWords.length],
+                hit: false
+              });
+            }
+          }
+        }
 
-    function loop() {
-      update();
-      draw();
-      loopHandle = requestAnimationFrame(loop);
-    }
+        function resetGame() {
+          paddle = {
+            w: width / 5,
+            h: 16,
+            x: width / 2 - width / 10,
+            y: height - 60,
+            speed: 6
+          };
+          ball = {
+            x: width / 2,
+            y: height - 80,
+            r: 6,
+            dx: 4,
+            dy: -4
+          };
+          launched = false;
+          timer = 30;
+          generateBlocks();
+        }
 
-    function endGame(win) {
-      cancelAnimationFrame(loopHandle);
-      clearInterval(timerHandle);
-      document.getElementById(win ? 'win' : 'lose').classList.remove('hidden');
-    }
+        function draw() {
+          ctx.clearRect(0, 0, width, height);
+          ctx.fillStyle = 'black';
+          ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
 
-    function showPopup(x, y, text) {
-      const el = document.createElement('div');
-      el.className = 'popup';
-      el.style.left = `${x}px`;
-      el.style.top = `${y}px`;
-      el.textContent = text;
-      document.body.appendChild(el);
-      setTimeout(() => el.remove(), 600);
-    }
+          ctx.beginPath();
+          ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+          ctx.fill();
 
-    window.addEventListener('keydown', e => {
-      if (e.key === 'ArrowLeft') isLeft = true;
-      if (e.key === 'ArrowRight') isRight = true;
-      if (e.key === ' ' && !launched) launched = true;
-    });
-    window.addEventListener('keyup', e => {
-      if (e.key === 'ArrowLeft') isLeft = false;
-      if (e.key === 'ArrowRight') isRight = false;
+          ctx.font = '14px monospace';
+          ctx.textAlign = 'center';
+          blocks.forEach(b => {
+            if (!b.hit) {
+              ctx.strokeStyle = 'black';
+              ctx.strokeRect(b.x, b.y, b.w, b.h);
+              ctx.fillStyle = 'black';
+              ctx.fillText(b.text, b.x + b.w / 2, b.y + b.h / 2 + 5);
+            }
+          });
+
+          overlay.textContent = timer + 's';
+        }
+
+        function update() {
+          if (!launched) {
+            ball.x = paddle.x + paddle.w / 2;
+            ball.y = paddle.y - ball.r;
+          } else {
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+          }
+
+          if (isLeft) paddle.x -= paddle.speed;
+          if (isRight) paddle.x += paddle.speed;
+          paddle.x = Math.max(0, Math.min(width - paddle.w, paddle.x));
+
+          if (ball.x <= ball.r || ball.x >= width - ball.r) ball.dx *= -1;
+          if (ball.y <= ball.r) ball.dy *= -1;
+
+          if (
+            ball.y + ball.r >= paddle.y &&
+            ball.x >= paddle.x &&
+            ball.x <= paddle.x + paddle.w
+          ) {
+            ball.dy *= -1;
+            ball.y = paddle.y - ball.r;
+          }
+
+          blocks.forEach(b => {
+            if (!b.hit &&
+                ball.x >= b.x && ball.x <= b.x + b.w &&
+                ball.y >= b.y && ball.y <= b.y + b.h) {
+              b.hit = true;
+              ball.dy *= -1;
+              timer++;
+            }
+          });
+
+          if (ball.y > height || timer <= 0) {
+            cancelAnimationFrame(loopId);
+            endScreen.textContent = 'you lose';
+            endScreen.style.display = 'flex';
+            return;
+          }
+
+          if (blocks.every(b => b.hit)) {
+            cancelAnimationFrame(loopId);
+            endScreen.textContent = 'you win';
+            endScreen.style.display = 'flex';
+            return;
+          }
+
+          draw();
+          loopId = requestAnimationFrame(update);
+        }
+
+        window.addEventListener('keydown', e => {
+          if (e.key === 'ArrowLeft') isLeft = true;
+          if (e.key === 'ArrowRight') isRight = true;
+          if (e.key === ' ' && !launched) launched = true;
+        });
+
+        window.addEventListener('keyup', e => {
+          if (e.key === 'ArrowLeft') isLeft = false;
+          if (e.key === 'ArrowRight') isRight = false;
+        });
+
+        if (isTouch) {
+          mobileControls.style.display = 'flex';
+          launchBtn.style.display = 'block';
+          document.getElementById('leftBtn').addEventListener('touchstart', () => isLeft = true);
+          document.getElementById('leftBtn').addEventListener('touchend', () => isLeft = false);
+          document.getElementById('rightBtn').addEventListener('touchstart', () => isRight = true);
+          document.getElementById('rightBtn').addEventListener('touchend', () => isRight = false);
+          launchBtn.addEventListener('click', () => launched = true);
+        }
+
+        setInterval(() => {
+          if (launched) timer--;
+        }, 1000);
+
+        window.addEventListener('resize', () => {
+          resize();
+          resetGame();
+        });
+
+        resize();
+        resetGame();
+        update();
+      }
     });
   </script>
 </body>

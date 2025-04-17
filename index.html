@@ -50,6 +50,30 @@
       font-family: monospace;
       cursor: pointer;
     }
+    #mobileControls {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 60px;
+      display: none;
+      z-index: 9;
+      display: flex;
+      justify-content: space-between;
+      background: white;
+      border-top: 1px dashed black;
+    }
+    .control-btn {
+      flex: 1;
+      font-size: 24px;
+      text-align: center;
+      user-select: none;
+      padding: 10px 0;
+      border-right: 1px dashed black;
+    }
+    .control-btn:last-child {
+      border-right: none;
+    }
   </style>
 </head>
 <body>
@@ -59,16 +83,21 @@
       <pre style="margin: 0; font-size: 14px;">
 🕹 HOW TO PLAY
 
-← / → arrow keys to move the paddle
-Press SPACE to launch the ball
-Break all AUDIO / ECHOES blocks to win!
+← / → to move the paddle
+Tap ◀ / ▶ on mobile
+Press SPACE to launch ball
+Break all AUDIO / ECHOES blocks
 +1s for each block hit
-Game over if the ball is missed
-or time runs out
+Game over if time runs out or ball is missed
       </pre>
       <button id="startButton">START</button>
     </div>
     <canvas id="gameCanvas"></canvas>
+
+    <div id="mobileControls">
+      <div id="leftBtn" class="control-btn">◀</div>
+      <div id="rightBtn" class="control-btn">▶</div>
+    </div>
   </div>
 
   <script>
@@ -146,11 +175,9 @@ or time runs out
       }
 
       function drawPaddleWithClock() {
-        // Draw paddle
         ctx.fillStyle = 'black';
         ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
 
-        // Draw timer on paddle
         const clockText = `${timer}s`;
         ctx.font = '12px monospace';
         ctx.fillStyle = 'white';
@@ -164,7 +191,6 @@ or time runs out
         drawBlocks();
         drawPaddleWithClock();
 
-        // Draw ball
         ctx.beginPath();
         ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
         ctx.fillStyle = 'black';
@@ -246,6 +272,18 @@ or time runs out
         if (e.key === 'ArrowLeft') isLeft = false;
         if (e.key === 'ArrowRight') isRight = false;
       });
+
+      // Touch controls
+      if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+        document.getElementById('mobileControls').style.display = 'flex';
+        const left = document.getElementById('leftBtn');
+        const right = document.getElementById('rightBtn');
+
+        left.addEventListener('touchstart', () => isLeft = true);
+        left.addEventListener('touchend', () => isLeft = false);
+        right.addEventListener('touchstart', () => isRight = true);
+        right.addEventListener('touchend', () => isRight = false);
+      }
     });
   </script>
 </body>

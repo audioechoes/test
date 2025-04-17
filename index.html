@@ -162,7 +162,7 @@
       window.addEventListener('resize', resizeCanvas);
       resizeCanvas();
 
-      let paddle = {}, ball = {}, blocks = [], rows = 4, cols = 10, blockW, blockH = 48;
+      let paddle = {}, ball = {}, blocks = [], rows = 2, cols = 10, blockW, blockH = 48;
       let timer = 30, isLeft = false, isRight = false;
       let gameInterval, timerInterval;
       const blockWords = ['AUDIO', 'ECHOES'];
@@ -186,11 +186,13 @@
       function generateBlocks() {
         blocks = [];
         blockW = width / cols;
+        const totalBlockHeight = rows * blockH;
+        const offsetY = Math.max((height - totalBlockHeight - 100) / 2, 20);
         for (let r = 0; r < rows; r++) {
           const row = [];
           for (let c = 0; c < cols; c++) {
             const text = blockWords[(c + r) % blockWords.length];
-            row.push({ x: c * blockW, y: r * blockH, text, hit: false });
+            row.push({ x: c * blockW, y: offsetY + r * blockH, text, hit: false });
           }
           blocks.push(row);
         }
@@ -215,12 +217,12 @@
       function drawClock() {
         ctx.font = '16px monospace';
         ctx.fillStyle = 'black';
-        ctx.fillText(`TIME: ${timer}s`, width - 120, height - 40);
+        ctx.fillText(`TIME: ${timer}s`, width - 140, 36);
       }
 
       function drawBlocks() {
         const scaleFactor = Math.min(width / 1400, 1);
-        const dynamicFontSize = Math.min(blockW * 0.8, blockH * 0.8) * scaleFactor;
+        const dynamicFontSize = Math.min(blockW * 0.8, blockH * 1.2) * scaleFactor;
         ctx.font = `${dynamicFontSize}px monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -240,6 +242,7 @@
       }
 
       function update() {
+        if (blocks.flat().every(b => b.hit)) endGame();
         if (isLeft) paddle.x -= paddle.speed;
         if (isRight) paddle.x += paddle.speed;
         paddle.x = Math.max(0, Math.min(width - paddle.w, paddle.x));

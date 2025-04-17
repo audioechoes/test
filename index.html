@@ -55,6 +55,44 @@
       font-family: monospace;
       cursor: pointer;
     }
+    #countdownFake {
+      position: absolute;
+      top: 0;
+      right: 0;
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+    #assistant {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      font-size: 12px;
+      background: rgba(0,0,0,0.05);
+      padding: 6px 10px;
+      max-width: 180px;
+    }
+    #helpBtn {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      border: 1px solid black;
+      background: white;
+      padding: 2px 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    #helpModal {
+      position: absolute;
+      top: 30%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      border: 1px solid black;
+      padding: 20px;
+      font-size: 14px;
+      display: none;
+      z-index: 9999;
+    }
   </style>
 </head>
 <body>
@@ -87,6 +125,14 @@ Failing is fine.
     <h1>YOU LOSE</h1>
     <p>Time wins<br>You didn't</p>
     <button class="btn" onclick="location.reload()">Retry?</button>
+  </div>
+
+  <div id="countdownFake">Analysing... 0%</div>
+  <div id="assistant">Awaiting your inevitable failure...</div>
+  <button id="helpBtn">?</button>
+  <div id="helpModal">
+    <p><strong>HELP?</strong> Honestly, just press stuff and hope.</p>
+    <button onclick="document.getElementById('helpModal').style.display='none'">Fine.</button>
   </div>
 
   <script>
@@ -122,6 +168,26 @@ Failing is fine.
       document.getElementById('start').classList.remove('hidden');
     };
 
+    document.getElementById('helpBtn').onclick = () => {
+      document.getElementById('helpModal').style.display = 'block';
+    };
+
+    const assistantPhrases = [
+      "Still going, are we?",
+      "Any idea what you're doing?",
+      "Bold of you to try again.",
+      "Hope isn’t a strategy, love.",
+      "You're not quitting? Curious."
+    ];
+
+    setInterval(() => {
+      document.getElementById('assistant').textContent = assistantPhrases[Math.floor(Math.random() * assistantPhrases.length)];
+    }, 8000);
+
+    setInterval(() => {
+      document.getElementById('countdownFake').textContent = `Analysing... ${Math.floor(Math.random() * 101)}%`;
+    }, 3000);
+
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     let width, height, paddle, ball, blocks = [], launched = false, isLeft = false, isRight = false;
@@ -155,26 +221,30 @@ Failing is fine.
       launched = false;
       blocks = [];
       const blockW = width / 8, blockH = 48;
+      const blockWords = ['AUDIO', 'ECHOES'];
       for (let r = 0; r < 2; r++) {
         for (let c = 0; c < 8; c++) {
-          blocks.push({ x: c * blockW, y: 30 + r * blockH, w: blockW, h: blockH, hit: false });
+          blocks.push({ x: c * blockW, y: 30 + r * blockH, w: blockW, h: blockH, hit: false, text: blockWords[(r * 8 + c) % blockWords.length] });
         }
       }
     }
 
     function draw() {
       ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = 'black';
+      ctx.font = '18px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       blocks.forEach(b => {
         if (!b.hit) {
           ctx.strokeRect(b.x, b.y, b.w, b.h);
+          ctx.fillText(b.text, b.x + b.w/2, b.y + b.h/2);
         }
       });
       ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
       ctx.fill();
-      ctx.font = '12px monospace';
+      ctx.font = '14px monospace';
       ctx.fillStyle = 'white';
       ctx.fillText(`${timer}s`, paddle.x + paddle.w / 2, paddle.y + paddle.h / 2);
     }

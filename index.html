@@ -60,16 +60,20 @@
       cursor: pointer;
     }
     #mobileControls {
+      display: none;
+    }
+
+    @media (max-width: 768px) {
+    #mobileControls {
       position: absolute;
-      bottom: 10px;
-      width: calc(100% - 40px);
+      bottom: 0;
+      width: 100%;
       display: flex;
       justify-content: space-between;
-      padding: 0;
-      margin: 0 20px;
+      padding: 10px 20px;
       z-index: 5;
       box-sizing: border-box;
-      padding-bottom: 40px;
+      height: 60px;
     }
     .touchBtn {
       background: transparent;
@@ -83,6 +87,7 @@
       user-select: none;
       opacity: 0.8;
       margin: 0 5px;
+      max-height: 100%;
     }
     #countdownOverlay {
       position: absolute;
@@ -140,6 +145,10 @@
 
   <script>
     window.addEventListener('DOMContentLoaded', () => {
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      if (isTouchDevice) {
+        document.getElementById('mobileControls').style.display = 'flex';
+      }
       const canvas = document.getElementById('gameCanvas');
       const ctx = canvas.getContext('2d');
       let width, height;
@@ -159,8 +168,16 @@
       const blockWords = ['AUDIO', 'ECHOES'];
 
       function resetGame() {
-        paddle = { w: width / 6, h: 10, x: width / 2 - width / 12, y: height - 80, speed: 7 };
-        ball = { x: width / 2, y: height - 50, r: 8, dx: 4, dy: -4 };
+        const controlOffset = height * 0.12;
+        const paddleY = height - controlOffset;
+        paddle = {
+          w: width / 6,
+          h: 10,
+          x: width / 2 - width / 12,
+          y: paddleY, speed: 7 };
+        ball = {
+          x: width / 2,
+          y: paddle.y - 24, r: 8, dx: 4, dy: -4 };
         timer = 30;
         generateBlocks();
         startGame();

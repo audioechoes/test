@@ -13,16 +13,28 @@
       font-family: monospace;
       overflow: hidden;
       box-sizing: border-box;
+      height: 100%;
     }
     #gameWrapper {
       position: relative;
       width: 100vw;
       height: 100vh;
+      max-width: 100%;
+      max-height: 100%;
+      aspect-ratio: 4 / 3;
+      margin: auto;
       border: 1px solid black;
       box-sizing: border-box;
     }
     canvas {
       display: block;
+      width: 100%;
+      height: 100%;
+    }
+    @media (orientation: portrait) {
+      #gameWrapper {
+        aspect-ratio: 3 / 4;
+      }
     }
     #startScreen, #endScreen {
       position: absolute;
@@ -35,6 +47,7 @@
       align-items: center;
       z-index: 10;
       font-weight: normal;
+      font-family: monospace;
     }
     #startScreen button, #endScreen button {
       padding: 1em 2em;
@@ -42,7 +55,7 @@
       background: transparent;
       color: black;
       border: 1px solid black;
-      border-radius: 8px;
+      border-radius: 4px;
       cursor: pointer;
     }
     #mobileControls {
@@ -59,9 +72,10 @@
       color: black;
       font-size: 2em;
       padding: 10px 20px;
-      border-radius: 8px;
+      border-radius: 4px;
       border: 1px solid black;
       user-select: none;
+      opacity: 0.8;
     }
     #countdownOverlay {
       position: absolute;
@@ -75,7 +89,7 @@
     }
     #plusOne {
       position: absolute;
-      top: 10px;
+      top: 30px;
       right: 10px;
       font-size: 1em;
       font-family: monospace;
@@ -128,7 +142,6 @@
       let paddle = {}, ball = {}, blocks = [], rows = 4, cols = 10, blockW, blockH = 48;
       let timer = 30, isLeft = false, isRight = false;
       let gameInterval, timerInterval;
-
       const blockWords = ['AUDIO', 'ECHOES'];
 
       function resetGame() {
@@ -171,11 +184,12 @@
       function drawClock() {
         ctx.font = '16px monospace';
         ctx.fillStyle = 'black';
-        ctx.fillText(`TIME: ${timer}s`, width - 100, height - 10);
+        ctx.fillText(`TIME: ${timer}s`, width - 120, height - 40);
       }
 
       function drawBlocks() {
-        ctx.font = `${blockH}px monospace`;
+        const dynamicFontSize = Math.min(blockW * 0.8, blockH * 0.8);
+        ctx.font = `${dynamicFontSize}px monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         blocks.forEach(row => row.forEach(b => {
@@ -255,7 +269,6 @@
         document.getElementById('endScreen').style.display = 'none';
         beginCountdown();
       });
-
       document.getElementById('leftBtn').addEventListener('touchstart', () => isLeft = true);
       document.getElementById('leftBtn').addEventListener('touchend', () => isLeft = false);
       document.getElementById('rightBtn').addEventListener('touchstart', () => isRight = true);

@@ -1,463 +1,293 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>tamabrickchi</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300&display=swap" rel="stylesheet" />
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      font-family: 'Urbanist', sans-serif;
-      background: white;
-      color: black;
-      overflow: hidden;
-      height: 100vh;
-      text-transform: lowercase;
-      font-weight: 300;
-    }
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const COMBO_TIME = 800;
+  const PARTICLE_COUNT = 12;
+  const PARTICLE_LIFE = 30;
+  const BOOT_LINES = [
+    'initialising challenge tv listings',
+    'booting snake ii',
+    'loading spiceworld.iso',
+    'extracting brass eye segment',
+    'setting oasis attitude level: maximum',
+    'blue peter badge auth granted',
+    'calibrating uk gold reruns'
+  ];
 
-    .centered {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-    }
+  const bootEl = document.getElementById('bootText');
+  const endScreen = document.getElementById('endOverlay');
+  const countdown = document.getElementById('countdownScreen');
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const overlay = document.getElementById('timerOverlay');
+  const mobileControls = document.getElementById('mobileControls');
+  const launchBtn = document.getElementById('launchBtn');
+  const restartBtn = document.getElementById('restartBtn');
 
-    .centered h1 {
-      font-size: 22px;
-      letter-spacing: 3px;
-      margin-bottom: 1em;
-    }
+  let width, height, loopId, lastTime = 0;
+  let timer, isLeft, isRight, launched;
+  let paddle, ball, blocks, particles;
+  let comboHits, lastHitTime;
 
-    .centered .sub {
-      font-size: 13px;
-      opacity: 0.5;
-    }
+  const blockWords = ['audio', 'echoes'];
 
-    .go {
-      margin-top: 2em;
-      cursor: pointer;
-      padding: 10px 20px;
-      border: 1px solid black;
-      background: transparent;
-      color: black;
-      font-size: 13px;
-      display: inline-block;
-      text-decoration: none;
-    }
+  function show(el, show = true) {
+    el.style.display = show ? 'block' : 'none';
+  }
 
-    .go:hover {
-      background: black;
-      color: white;
-    }
-
-    .boot-lines {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      font-size: 11px;
-      color: black;
-      white-space: pre-wrap;
-      line-height: 1.5;
-      font-family: 'Courier New', monospace;
-    }
-
-    .build {
-      position: absolute;
-      bottom: 10px;
-      right: 10px;
-      font-size: 10px;
-      opacity: 0.2;
-    }
-
-    .cursor {
-      display: inline-block;
-      width: 1ch;
-      animation: blink 1s steps(2, start) infinite;
-    }
-
-    @keyframes blink {
-      50% { opacity: 0; }
-    }
-
-    #countdownScreen {
-      position: absolute;
-      inset: 0;
-      background: white;
-      display: none;
-      justify-content: center;
-      align-items: center;
-      font-size: 40px;
-      font-weight: 300;
-      text-transform: lowercase;
-      animation: flash 0.3s ease-in-out 1;
-      z-index: 15;
-    }
-
-    @keyframes flash {
-      0%, 100% { background: white; color: black; }
-      50% { background: black; color: white; }
-    }
-
-    #mobileControls {
-      display: none;
-      position: absolute;
-      bottom: 0;
-      width: 100%;
-      display: flex;
-      justify-content: space-between;
-      z-index: 10;
-    }
-
-    .control-btn {
-      flex: 1;
-      padding: 20px;
-      text-align: center;
-      font-size: 18px;
-      background: white;
-      border-top: 1px solid black;
-      user-select: none;
-    }
-
-    #launchBtn {
-      position: absolute;
-      bottom: 80px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 16px;
-      border: 1px solid black;
-      padding: 10px 20px;
-      background: white;
-      display: none;
-      z-index: 10;
-    }
-
-    .timer-overlay {
-      position: absolute;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-family: monospace;
-      font-size: 16px;
-      z-index: 5;
-    }
-
-    .end-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      display: none;
-      justify-content: center;
-      align-items: center;
-      background: white;
-      font-size: 16px;
-      font-family: monospace;
-      z-index: 20;
-    }
-
-    canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      display: none;
-      z-index: 1;
-    }
-  </style>
-</head>
-<body>
-  <div class="boot-lines" id="bootText"></div>
-
-  <div class="centered active" id="startScreen">
-    <h1>tamabrickchi</h1>
-    <div class="sub">barely a game. barely a point.</div>
-    <div class="go" onclick="showRules()">▶ rules of the "game"</div>
-  </div>
-
-  <div class="centered" id="rulesScreen" style="display:none">
-    <h2>instructions</h2>
-    <div class="sub">
-      move left or right. hit the bricks<br>
-      press space. launch the ball. it won’t thank you<br>
-      destroy blocks. each hit adds +1 second. it won’t be enough<br>
-      if the timer hits zero or the ball drops. same result: you lose.
-    </div>
-    <div class="go" onclick="startCountdown()">▶ begin anyway</div>
-  </div>
-
-  <div id="countdownScreen">3</div>
-  <canvas id="gameCanvas"></canvas>
-  <div id="mobileControls">
-    <div id="leftBtn" class="control-btn">◀</div>
-    <div id="rightBtn" class="control-btn">▶</div>
-  </div>
-  <div id="launchBtn">launch</div>
-  <div class="timer-overlay" id="timerOverlay"></div>
-  <div class="end-overlay" id="endOverlay"></div>
-  <div class="build">build 0.0.1-alpha</div>
-
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const bootLines = [
-        'initialising challenge tv listings',
-        'booting snake ii',
-        'loading spiceworld.iso',
-        'extracting brass eye segment',
-        'setting oasis attitude level: maximum',
-        'blue peter badge auth granted',
-        'calibrating uk gold reruns'
-      ];
-
-      const bootEl = document.getElementById('bootText');
-
-      function typeLine(text, callback) {
-        let i = 0;
-        const span = document.createElement('div');
-        const cursor = document.createElement('span');
-        cursor.className = 'cursor';
-        cursor.textContent = '_';
-        span.textContent = '> ';
-        span.appendChild(cursor);
-        bootEl.appendChild(span);
-
-        function typeChar() {
-          if (i < text.length) {
-            span.insertBefore(document.createTextNode(text[i]), cursor);
-            i++;
-            setTimeout(typeChar, 30);
-          } else {
-            span.removeChild(cursor);
-            callback();
-          }
-        }
-        typeChar();
+  function typeLine(text, callback) {
+    let i = 0;
+    const span = document.createElement('div');
+    const cursor = document.createElement('span');
+    cursor.className = 'cursor';
+    cursor.textContent = '_';
+    span.textContent = '> ';
+    span.appendChild(cursor);
+    bootEl.appendChild(span);
+    function typeChar() {
+      if (i < text.length) {
+        span.insertBefore(document.createTextNode(text[i]), cursor);
+        i++;
+        setTimeout(typeChar, 30);
+      } else {
+        span.removeChild(cursor);
+        callback();
       }
+    }
+    typeChar();
+  }
 
-      function startTyping(line = 0) {
-        if (line < bootLines.length) {
-          typeLine(bootLines[line], () => startTyping(line + 1));
-        }
+  function startTyping(line = 0) {
+    if (line < BOOT_LINES.length) {
+      typeLine(BOOT_LINES[line], () => startTyping(line + 1));
+    }
+  }
+
+  window.showRules = () => {
+    show(document.getElementById('startScreen'), false);
+    show(document.getElementById('rulesScreen'));
+  };
+
+  window.startCountdown = () => {
+    show(document.getElementById('rulesScreen'), false);
+    show(bootEl, false);
+    show(countdown, true);
+
+    const steps = ['3', '2', '1'];
+    let i = 0;
+    const tick = () => {
+      countdown.textContent = steps[i];
+      countdown.style.animation = 'none';
+      countdown.offsetHeight;
+      countdown.style.animation = 'flash 0.3s ease-in-out';
+      i++;
+      if (i < steps.length) setTimeout(tick, 500);
+      else setTimeout(() => {
+        countdown.textContent = 'start.';
+        countdown.style.animation = 'flash 0.2s ease-in-out';
+        setTimeout(() => {
+          show(countdown, false);
+          show(canvas);
+          startGame();
+        }, 500);
+      }, 500);
+    };
+    tick();
+  };
+
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.width = Math.floor(canvas.offsetWidth * dpr);
+    canvas.height = Math.floor(canvas.offsetHeight * dpr);
+    width = canvas.width;
+    height = canvas.height;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function generateBlocks() {
+    const cols = Math.floor(width / 100);
+    const rows = 2;
+    const blockW = width / cols;
+    const blockH = 48;
+    blocks = [];
+    const words = [...blockWords, ...blockWords].sort(() => 0.5 - Math.random());
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        blocks.push({
+          x: c * blockW,
+          y: 30 + r * blockH,
+          w: blockW,
+          h: blockH,
+          text: words[(r * cols + c) % words.length],
+          hit: false
+        });
       }
+    }
+  }
 
-      startTyping();
+  function emitParticles(x, y) {
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particles.push({
+        x, y,
+        dx: Math.cos(i * Math.PI / 6) * 2,
+        dy: Math.sin(i * Math.PI / 6) * 2,
+        life: PARTICLE_LIFE
+      });
+    }
+  }
 
-      window.showRules = () => {
-        document.getElementById('startScreen').style.display = 'none';
-        document.getElementById('rulesScreen').style.display = 'block';
-      };
+  function drawParticles() {
+    particles = particles.filter(p => p.life-- > 0);
+    particles.forEach(p => {
+      ctx.fillStyle = `rgba(255, 0, 0, ${p.life / PARTICLE_LIFE})`;
+      ctx.fillRect(p.x, p.y, 2, 2);
+      p.x += p.dx;
+      p.y += p.dy;
+    });
+  }
 
-      window.startCountdown = () => {
-        const countdown = document.getElementById('countdownScreen');
-        document.getElementById('rulesScreen').style.display = 'none';
-        countdown.style.display = 'flex';
+  function resetGame() {
+    resizeCanvas();
+    paddle = { w: width / 5, h: 16, x: width / 2 - width / 10, y: height - 60, speed: 6 };
+    ball = {
+      x: width / 2,
+      y: height - 80,
+      r: 6,
+      dx: (Math.random() > 0.5 ? 1 : -1) * 3.5,
+      dy: -4
+    };
+    timer = 30;
+    isLeft = isRight = launched = false;
+    comboHits = 0;
+    lastHitTime = 0;
+    generateBlocks();
+    particles = [];
+    lastTime = performance.now();
+  }
 
-        const steps = ['3', '2', '1'];
-        let i = 0;
+  function drawGame() {
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = 'black';
+    ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+    ctx.fill();
+    overlay.textContent = timer + 's';
 
-        const tick = () => {
-          countdown.textContent = steps[i];
-          countdown.style.animation = 'none';
-          countdown.offsetHeight;
-          countdown.style.animation = 'flash 0.3s ease-in-out';
-          i++;
-          if (i < steps.length) {
-            setTimeout(tick, 500);
-          } else {
-            setTimeout(() => {
-              countdown.textContent = 'start.';
-              countdown.style.animation = 'flash 0.2s ease-in-out';
-              setTimeout(() => {
-                countdown.style.display = 'none';
-                document.getElementById('gameCanvas').style.display = 'block';
-                startGame();
-              }, 500);
-            }, 500);
-          }
-        };
-
-        tick();
-      };
-
-      function startGame() {
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const overlay = document.getElementById('timerOverlay');
-        const endScreen = document.getElementById('endOverlay');
-        const mobileControls = document.getElementById('mobileControls');
-        const launchBtn = document.getElementById('launchBtn');
-
-        const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-
-        let width, height, loopId;
-        let timer = 30;
-        let isLeft = false, isRight = false;
-        let launched = false;
-        let paddle, ball, blocks = [];
-        const blockWords = ['audio', 'echoes'];
-
-        function resize() {
-          const dpr = window.devicePixelRatio || 1;
-          width = canvas.width = window.innerWidth * dpr;
-          height = canvas.height = window.innerHeight * dpr;
-          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        }
-
-        function generateBlocks() {
-          const cols = 8, rows = 2;
-          const blockW = width / cols;
-          const blockH = 48;
-          blocks = [];
-          for (let r = 0; r < rows; r++) {
-            for (let c = 0; c < cols; c++) {
-              blocks.push({
-                x: c * blockW,
-                y: 30 + r * blockH,
-                w: blockW,
-                h: blockH,
-                text: blockWords[(r * cols + c) % blockWords.length],
-                hit: false
-              });
-            }
-          }
-        }
-
-        function resetGame() {
-          paddle = {
-            w: width / 5,
-            h: 16,
-            x: width / 2 - width / 10,
-            y: height - 60,
-            speed: 6
-          };
-          ball = {
-            x: width / 2,
-            y: height - 80,
-            r: 6,
-            dx: 4,
-            dy: -4
-          };
-          launched = false;
-          timer = 30;
-          generateBlocks();
-        }
-
-        function draw() {
-          ctx.clearRect(0, 0, width, height);
-          ctx.fillStyle = 'black';
-          ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
-
-          ctx.beginPath();
-          ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.font = '14px monospace';
-          ctx.textAlign = 'center';
-          blocks.forEach(b => {
-            if (!b.hit) {
-              ctx.strokeStyle = 'black';
-              ctx.strokeRect(b.x, b.y, b.w, b.h);
-              ctx.fillStyle = 'black';
-              ctx.fillText(b.text, b.x + b.w / 2, b.y + b.h / 2 + 5);
-            }
-          });
-
-          overlay.textContent = timer + 's';
-        }
-
-        function update() {
-          if (!launched) {
-            ball.x = paddle.x + paddle.w / 2;
-            ball.y = paddle.y - ball.r;
-          } else {
-            ball.x += ball.dx;
-            ball.y += ball.dy;
-          }
-
-          if (isLeft) paddle.x -= paddle.speed;
-          if (isRight) paddle.x += paddle.speed;
-          paddle.x = Math.max(0, Math.min(width - paddle.w, paddle.x));
-
-          if (ball.x <= ball.r || ball.x >= width - ball.r) ball.dx *= -1;
-          if (ball.y <= ball.r) ball.dy *= -1;
-
-          if (
-            ball.y + ball.r >= paddle.y &&
-            ball.x >= paddle.x &&
-            ball.x <= paddle.x + paddle.w
-          ) {
-            ball.dy *= -1;
-            ball.y = paddle.y - ball.r;
-          }
-
-          blocks.forEach(b => {
-            if (!b.hit &&
-                ball.x >= b.x && ball.x <= b.x + b.w &&
-                ball.y >= b.y && ball.y <= b.y + b.h) {
-              b.hit = true;
-              ball.dy *= -1;
-              timer++;
-            }
-          });
-
-          if (ball.y > height || timer <= 0) {
-            cancelAnimationFrame(loopId);
-            endScreen.textContent = 'you lose';
-            endScreen.style.display = 'flex';
-            return;
-          }
-
-          if (blocks.every(b => b.hit)) {
-            cancelAnimationFrame(loopId);
-            endScreen.textContent = 'you win';
-            endScreen.style.display = 'flex';
-            return;
-          }
-
-          draw();
-          loopId = requestAnimationFrame(update);
-        }
-
-        window.addEventListener('keydown', e => {
-          if (e.key === 'ArrowLeft') isLeft = true;
-          if (e.key === 'ArrowRight') isRight = true;
-          if (e.key === ' ' && !launched) launched = true;
-        });
-
-        window.addEventListener('keyup', e => {
-          if (e.key === 'ArrowLeft') isLeft = false;
-          if (e.key === 'ArrowRight') isRight = false;
-        });
-
-        if (isTouch) {
-          mobileControls.style.display = 'flex';
-          launchBtn.style.display = 'block';
-          document.getElementById('leftBtn').addEventListener('touchstart', () => isLeft = true);
-          document.getElementById('leftBtn').addEventListener('touchend', () => isLeft = false);
-          document.getElementById('rightBtn').addEventListener('touchstart', () => isRight = true);
-          document.getElementById('rightBtn').addEventListener('touchend', () => isRight = false);
-          launchBtn.addEventListener('click', () => launched = true);
-        }
-
-        setInterval(() => {
-          if (launched) timer--;
-        }, 1000);
-
-        window.addEventListener('resize', () => {
-          resize();
-          resetGame();
-        });
-
-        resize();
-        resetGame();
-        update();
+    blocks.forEach(b => {
+      if (!b.hit) {
+        ctx.strokeStyle = 'black';
+        ctx.strokeRect(b.x, b.y, b.w, b.h);
+        ctx.font = `${Math.floor(Math.min(b.w, b.h) / 3)}px monospace`;
+        ctx.fillStyle = 'black';
+        ctx.textAlign = 'center';
+        ctx.fillText(b.text, b.x + b.w / 2, b.y + b.h / 2 + 5);
       }
     });
-  </script>
-</body>
-</html>
+
+    drawParticles();
+  }
+
+  function update(now) {
+    if (!launched) {
+      ball.x = paddle.x + paddle.w / 2;
+      ball.y = paddle.y - ball.r;
+    } else {
+      ball.x += ball.dx;
+      ball.y += ball.dy;
+    }
+
+    if (now - lastTime >= 1000 && launched) {
+      timer--;
+      lastTime = now;
+    }
+
+    if (isLeft) paddle.x -= paddle.speed;
+    if (isRight) paddle.x += paddle.speed;
+    paddle.x = Math.max(0, Math.min(width - paddle.w, paddle.x));
+
+    if (ball.x <= ball.r || ball.x >= width - ball.r) ball.dx *= -1;
+    if (ball.y <= ball.r) ball.dy *= -1;
+
+    if (ball.y + ball.r >= paddle.y && ball.x >= paddle.x && ball.x <= paddle.x + paddle.w) {
+      const hitPoint = (ball.x - paddle.x) / paddle.w - 0.5;
+      const angle = hitPoint * Math.PI / 3;
+      const speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+      ball.dx = speed * Math.sin(angle);
+      ball.dy = -Math.abs(speed * Math.cos(angle));
+      ball.y = paddle.y - ball.r;
+    }
+
+    let currentTime = now;
+    blocks.forEach(b => {
+      if (!b.hit && ball.x >= b.x && ball.x <= b.x + b.w && ball.y >= b.y && ball.y <= b.y + b.h) {
+        b.hit = true;
+        ball.dy *= -1;
+        timer = Math.min(timer + 1, 60);
+        comboHits = (currentTime - lastHitTime < COMBO_TIME) ? comboHits + 1 : 1;
+        lastHitTime = currentTime;
+        if (comboHits >= 3) emitParticles(b.x + b.w / 2, b.y + b.h / 2);
+      }
+    });
+
+    if (ball.y > height || timer <= 0) return endGame('you lose');
+    if (blocks.every(b => b.hit)) return endGame('you win');
+
+    drawGame();
+    loopId = requestAnimationFrame(update);
+  }
+
+  function endGame(msg) {
+    show(canvas, false);
+    endScreen.firstChild.textContent = msg;
+    show(endScreen);
+    cancelAnimationFrame(loopId);
+  }
+
+  function startGame() {
+    resetGame();
+    loopId = requestAnimationFrame(update);
+  }
+
+  // Controls
+  document.getElementById('leftBtn')?.addEventListener('touchstart', () => isLeft = true);
+  document.getElementById('leftBtn')?.addEventListener('touchend', () => isLeft = false);
+  document.getElementById('rightBtn')?.addEventListener('touchstart', () => isRight = true);
+  document.getElementById('rightBtn')?.addEventListener('touchend', () => isRight = false);
+  launchBtn?.addEventListener('click', () => launched = true);
+
+  window.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft') isLeft = true;
+    if (e.key === 'ArrowRight') isRight = true;
+    if (e.key === ' ' && !launched) launched = true;
+    if (e.key === 'Enter' && endScreen.style.display === 'block') {
+      restartBtn.click();
+    }
+  });
+
+  window.addEventListener('keyup', e => {
+    if (e.key === 'ArrowLeft') isLeft = false;
+    if (e.key === 'ArrowRight') isRight = false;
+  });
+
+  let resizeTimeout;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+      cancelAnimationFrame(loopId);
+      resetGame();
+      loopId = requestAnimationFrame(update);
+    }, 200);
+  });
+
+  restartBtn?.addEventListener('click', () => {
+    cancelAnimationFrame(loopId);
+    show(canvas);
+    show(endScreen, false);
+    startGame();
+  });
+
+  startTyping();
+});
+</script>

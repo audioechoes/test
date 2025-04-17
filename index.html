@@ -9,7 +9,7 @@
       margin: 0;
       padding: 0;
       font-family: monospace;
-      background: transparent;
+      background: white;
       color: black;
       overflow: hidden;
       height: 100vh;
@@ -25,25 +25,39 @@
       display: block;
       background: transparent;
     }
-
-    /* Boot Screen */
     #bootScreen {
       position: absolute;
       top: 0; left: 0;
       width: 100%;
       height: 100%;
-      background: black;
-      color: #00ff00;
+      background: white;
+      z-index: 999;
+      padding: 20px;
+      box-sizing: border-box;
       font-family: monospace;
+      font-size: 14px;
+      white-space: pre-wrap;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      z-index: 999;
-      font-size: 16px;
-      white-space: pre;
     }
-
+    #bootText {
+      width: 100%;
+      max-width: 600px;
+      text-align: left;
+      margin: auto;
+      line-height: 1.6;
+    }
+    #bootStart {
+      margin-top: 30px;
+      padding: 6px 12px;
+      font-family: monospace;
+      border: 1px solid black;
+      background: transparent;
+      cursor: pointer;
+      display: none;
+    }
     #startScreen {
       position: absolute;
       top: 0; left: 0;
@@ -61,7 +75,6 @@
       padding: 20px;
       box-sizing: border-box;
     }
-
     #startButton {
       margin-top: 20px;
       padding: 8px 16px;
@@ -70,7 +83,6 @@
       font-family: monospace;
       cursor: pointer;
     }
-
     #mobileControls {
       position: absolute;
       bottom: 0;
@@ -84,7 +96,6 @@
       background: white;
       border-top: 1px dashed black;
     }
-
     .control-btn {
       flex: 1;
       font-size: 24px;
@@ -93,11 +104,9 @@
       padding: 10px 0;
       border-right: 1px dashed black;
     }
-
     .control-btn:last-child {
       border-right: none;
     }
-
     .popup {
       position: absolute;
       font-size: 12px;
@@ -105,18 +114,10 @@
       pointer-events: none;
       animation: floatUp 0.5s ease-out forwards;
     }
-
     @keyframes floatUp {
-      from {
-        opacity: 1;
-        transform: translateY(0);
-      }
-      to {
-        opacity: 0;
-        transform: translateY(-20px);
-      }
+      from { opacity: 1; transform: translateY(0); }
+      to { opacity: 0; transform: translateY(-20px); }
     }
-
     .overlay {
       position: absolute;
       top: 0; left: 0;
@@ -135,7 +136,6 @@
       padding: 20px;
       box-sizing: border-box;
     }
-
     .overlay button {
       margin-top: 20px;
       padding: 8px 16px;
@@ -144,31 +144,19 @@
       font-family: monospace;
       cursor: pointer;
     }
+    .fade-out {
+      animation: fadeOut 0.7s ease-out forwards;
+    }
+    @keyframes fadeOut {
+      to { opacity: 0; visibility: hidden; }
+    }
   </style>
 </head>
 <body>
   <div id="gameWrapper">
-    <div id="bootScreen" id="boot">
-T  
- A  
-  M  
-   A  
-    B  
-     R  
-      I  
-       C  
-        K  
-         C  
-          H  
-           I  
-
-> System booting  
-> Nothing to save  
-> Nothing to load  
-> Paddle linked  
-> Ball containment... unstable  
-> Echoes detected  
-> Begin if you must_
+    <div id="bootScreen">
+      <div id="bootText"></div>
+      <button id="bootStart">START NOW</button>
     </div>
 
     <div id="startScreen">
@@ -186,9 +174,7 @@ Which, let’s face it, we all do eventually
       </pre>
       <button id="startButton">START</button>
     </div>
-
     <canvas id="gameCanvas"></canvas>
-
     <div id="mobileControls">
       <div id="leftBtn" class="control-btn">◀</div>
       <div id="rightBtn" class="control-btn">▶</div>
@@ -208,11 +194,44 @@ Which, let’s face it, we all do eventually
   </div>
 
   <script>
+    // BOOT TYPEWRITER EFFECT
+    const bootLines = [
+      "T", " A", "  M", "   A", "    B", "     R", "      I", "       C", "        K", "         C", "          H", "           I",
+      "",
+      "> System booting",
+      "> Nothing to save",
+      "> Nothing to load",
+      "> Paddle linked",
+      "> Ball containment... unstable",
+      "> Echoes detected",
+      "> Begin if you must_"
+    ];
+    const bootTextEl = document.getElementById('bootText');
+    const bootStartBtn = document.getElementById('bootStart');
+    let lineIndex = 0;
+    function typeLine() {
+      if (lineIndex < bootLines.length) {
+        const line = document.createElement('div');
+        line.textContent = bootLines[lineIndex++];
+        bootTextEl.appendChild(line);
+        setTimeout(typeLine, 150);
+      } else {
+        bootStartBtn.style.display = 'inline-block';
+      }
+    }
+    typeLine();
+    bootStartBtn.addEventListener('click', () => {
+      document.getElementById('bootScreen').classList.add('fade-out');
+      setTimeout(() => {
+        document.getElementById('bootScreen').style.display = 'none';
+        document.getElementById('startScreen').style.display = 'flex';
+      }, 700);
+    });
+
+    // GAME START
     window.addEventListener('DOMContentLoaded', () => {
       const canvas = document.getElementById('gameCanvas');
       const ctx = canvas.getContext('2d');
-      const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-
       let width, height;
       function resizeCanvas() {
         width = canvas.clientWidth;
@@ -223,13 +242,12 @@ Which, let’s face it, we all do eventually
       resizeCanvas();
       window.addEventListener('resize', resizeCanvas);
 
+      const blockWords = ['AUDIO', 'ECHOES'];
       let blocks = [], blockW, blockH = 48, rows = 2, cols = 8;
-      let paddle = {}, ball = {};
+      let paddle = {}, ball = {}, popups = [];
       let isLeft = false, isRight = false, launched = false;
       let timer = 30;
       let gameLoop, timerLoop;
-      const blockWords = ['AUDIO', 'ECHOES'];
-      const popups = [];
 
       function resetGame() {
         paddle = {
@@ -248,8 +266,8 @@ Which, let’s face it, we all do eventually
         };
         launched = false;
         timer = 30;
+        popups = [];
         generateBlocks();
-        popups.length = 0;
       }
 
       function generateBlocks() {
@@ -259,27 +277,10 @@ Which, let’s face it, we all do eventually
           let row = [];
           for (let c = 0; c < cols; c++) {
             const word = blockWords[(r * cols + c) % blockWords.length];
-            row.push({
-              x: c * blockW,
-              y: 30 + r * blockH,
-              text: word,
-              hit: false
-            });
+            row.push({ x: c * blockW, y: 30 + r * blockH, text: word, hit: false });
           }
           blocks.push(row);
         }
-      }
-
-      function createPopup(x, y, text) {
-        const popup = document.createElement('div');
-        popup.className = 'popup';
-        popup.textContent = text;
-        popup.style.left = x + 'px';
-        popup.style.top = y + 'px';
-        document.body.appendChild(popup);
-        setTimeout(() => {
-          popup.remove();
-        }, 500);
       }
 
       function drawExplosion(x, y) {
@@ -291,6 +292,16 @@ Which, let’s face it, we all do eventually
         ctx.beginPath();
         ctx.arc(x, y, 5 + Math.random() * 2, 0, Math.PI * 2);
         ctx.fill();
+      }
+
+      function createPopup(x, y, text) {
+        const popup = document.createElement('div');
+        popup.className = 'popup';
+        popup.textContent = text;
+        popup.style.left = `${x}px`;
+        popup.style.top = `${y}px`;
+        document.body.appendChild(popup);
+        setTimeout(() => popup.remove(), 500);
       }
 
       function drawBlocks() {
@@ -307,23 +318,20 @@ Which, let’s face it, we all do eventually
         }));
       }
 
-      function drawPaddleWithClock() {
+      function drawPaddleClock() {
         ctx.fillStyle = 'black';
         ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
-
-        const clockText = `${timer}s`;
         ctx.font = '12px monospace';
         ctx.fillStyle = 'white';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(clockText, paddle.x + paddle.w / 2, paddle.y + paddle.h / 2);
+        ctx.fillText(`${timer}s`, paddle.x + paddle.w / 2, paddle.y + paddle.h / 2);
       }
 
       function draw() {
         ctx.clearRect(0, 0, width, height);
         drawBlocks();
-        drawPaddleWithClock();
-
+        drawPaddleClock();
         ctx.beginPath();
         ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
         ctx.fillStyle = 'black';
@@ -339,8 +347,7 @@ Which, let’s face it, we all do eventually
           ball.y += ball.dy;
         }
 
-        if (blocks.flat().every(b => b.hit)) showWin();
-
+        if (blocks.flat().every(b => b.hit)) endGame(true);
         if (isLeft) paddle.x -= paddle.speed;
         if (isRight) paddle.x += paddle.speed;
         paddle.x = Math.max(0, Math.min(width - paddle.w, paddle.x));
@@ -348,11 +355,9 @@ Which, let’s face it, we all do eventually
         if (ball.x <= ball.r || ball.x >= width - ball.r) ball.dx *= -1;
         if (ball.y <= ball.r) ball.dy *= -1;
 
-        if (
-          ball.y + ball.r >= paddle.y &&
-          ball.x >= paddle.x &&
-          ball.x <= paddle.x + paddle.w
-        ) {
+        if (ball.y + ball.r >= paddle.y &&
+            ball.x >= paddle.x &&
+            ball.x <= paddle.x + paddle.w) {
           ball.dy *= -1;
           ball.y = paddle.y - ball.r;
         }
@@ -369,7 +374,7 @@ Which, let’s face it, we all do eventually
           }
         }));
 
-        if (ball.y > height) showLose();
+        if (ball.y > height) endGame(false);
       }
 
       function loop() {
@@ -384,29 +389,22 @@ Which, let’s face it, we all do eventually
         loop();
         timerLoop = setInterval(() => {
           if (launched) timer--;
-          if (timer <= 0) showLose();
+          if (timer <= 0) endGame(false);
         }, 1000);
       }
 
-      function showWin() {
+      function endGame(win) {
         cancelAnimationFrame(gameLoop);
         clearInterval(timerLoop);
-        document.getElementById('winScreen').style.display = 'flex';
+        document.getElementById(win ? 'winScreen' : 'loseScreen').style.display = 'flex';
       }
 
-      function showLose() {
-        cancelAnimationFrame(gameLoop);
-        clearInterval(timerLoop);
-        document.getElementById('loseScreen').style.display = 'flex';
-      }
       document.getElementById('startButton').addEventListener('click', startGame);
-
-      // Key controls
+      // Controls
       window.addEventListener('keydown', e => {
         if (e.key === 'ArrowLeft') isLeft = true;
         if (e.key === 'ArrowRight') isRight = true;
         if (e.key === ' ' && !launched) launched = true;
-        if (booting && !startTriggered) triggerStart();
       });
 
       window.addEventListener('keyup', e => {
@@ -415,33 +413,15 @@ Which, let’s face it, we all do eventually
       });
 
       // Touch support
+      const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
       if (isTouch) {
-        const mobileControls = document.getElementById('mobileControls');
-        mobileControls.style.display = 'flex';
-
+        document.getElementById('mobileControls').style.display = 'flex';
         const left = document.getElementById('leftBtn');
         const right = document.getElementById('rightBtn');
-
         left.addEventListener('touchstart', () => isLeft = true);
         left.addEventListener('touchend', () => isLeft = false);
         right.addEventListener('touchstart', () => isRight = true);
         right.addEventListener('touchend', () => isRight = false);
-
-        // Start on first touch (boot)
-        window.addEventListener('touchstart', () => {
-          if (booting && !startTriggered) triggerStart();
-        });
-      }
-
-      // Bootscreen logic
-      let booting = true;
-      let startTriggered = false;
-      function triggerStart() {
-        startTriggered = true;
-        const boot = document.getElementById('bootScreen');
-        boot.style.display = 'none';
-        document.getElementById('startScreen').style.display = 'flex';
-        booting = false;
       }
     });
   </script>

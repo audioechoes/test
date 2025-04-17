@@ -21,7 +21,7 @@
     #gameWrapper {
       position: relative;
       width: 100vw;
-      height: 516px;
+      height: 600px;
       max-width: 1400px;
       margin: auto;
       border: 1px solid black;
@@ -159,7 +159,7 @@
       const blockWords = ['AUDIO', 'ECHOES'];
 
       function resetGame() {
-        paddle = { w: width / 6, h: 10, x: width / 2 - width / 12, y: height - 30, speed: 7 };
+        paddle = { w: width / 6, h: 10, x: width / 2 - width / 12, y: height - 80, speed: 7 };
         ball = { x: width / 2, y: height - 50, r: 8, dx: 4, dy: -4 };
         timer = 30;
         generateBlocks();
@@ -202,7 +202,8 @@
       }
 
       function drawBlocks() {
-        const dynamicFontSize = Math.min(blockW * 0.8, blockH * 0.8);
+        const scaleFactor = Math.min(width / 1400, 1);
+        const dynamicFontSize = Math.min(blockW * 0.8, blockH * 0.8) * scaleFactor;
         ctx.font = `${dynamicFontSize}px monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';

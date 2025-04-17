@@ -25,6 +25,7 @@
       margin: auto;
       border: 1px solid black;
       box-sizing: border-box;
+      overflow: hidden;
     }
     canvas {
       display: block;
@@ -61,21 +62,26 @@
     #mobileControls {
       position: absolute;
       bottom: 10px;
-      width: 100%;
+      width: calc(100% - 40px);
       display: flex;
       justify-content: space-between;
-      padding: 0 20px;
+      padding: 0;
+      margin: 0 20px;
       z-index: 5;
+      box-sizing: border-box;
     }
     .touchBtn {
       background: transparent;
       color: black;
       font-size: 2em;
-      padding: 10px 20px;
+      flex: 1;
+      text-align: center;
+      padding: 10px 0;
       border-radius: 4px;
       border: 1px solid black;
       user-select: none;
       opacity: 0.8;
+      margin: 0 5px;
     }
     #countdownOverlay {
       position: absolute;
@@ -283,5 +289,3 @@
       });
     });
   </script>
-</body>
-</html>

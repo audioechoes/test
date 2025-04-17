@@ -12,10 +12,19 @@
       color: black;
       font-family: monospace;
       overflow: hidden;
+      box-sizing: border-box;
+    }
+    #gameWrapper {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
       border: 1px solid black;
       box-sizing: border-box;
     }
-    #startScreen {
+    canvas {
+      display: block;
+    }
+    #startScreen, #endScreen {
       position: absolute;
       top: 0; left: 0;
       width: 100%; height: 100%;
@@ -25,10 +34,9 @@
       justify-content: center;
       align-items: center;
       z-index: 10;
-      box-sizing: border-box;
-      border: 1px solid black;
+      font-weight: normal;
     }
-    #startScreen button {
+    #startScreen button, #endScreen button {
       padding: 1em 2em;
       font-size: 1.2em;
       background: transparent;
@@ -81,19 +89,26 @@
   </style>
 </head>
 <body>
-  <div id="startScreen">
-    <h1 style="font-weight: normal;">Tamabrickchi</h1>
-    <p style="font-weight: normal;">Use arrow keys or touch buttons to move the paddle.<br>Clear blocks before the timer ends.</p>
-    <button id="startButton">Start</button>
-  </div>
+  <div id="gameWrapper">
+    <div id="startScreen">
+      <h1>Tamabrickchi</h1>
+      <p>Use arrow keys or touch buttons to move the paddle.<br>Clear blocks before the timer ends.</p>
+      <button id="startButton">Start</button>
+    </div>
 
-  <canvas id="gameCanvas"></canvas>
-  <div id="mobileControls">
-    <div class="touchBtn" id="leftBtn">◀</div>
-    <div class="touchBtn" id="rightBtn">▶</div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="mobileControls">
+      <div class="touchBtn" id="leftBtn">◀</div>
+      <div class="touchBtn" id="rightBtn">▶</div>
+    </div>
+    <div id="countdownOverlay"></div>
+    <div id="plusOne">+1 second</div>
+
+    <div id="endScreen" style="display:none">
+      <h1>Game Over</h1>
+      <button id="restartButton">Restart</button>
+    </div>
   </div>
-  <div id="countdownOverlay"></div>
-  <div id="plusOne">+1 second</div>
 
   <script>
     window.addEventListener('DOMContentLoaded', () => {
@@ -102,8 +117,8 @@
       let width, height;
 
       function resizeCanvas() {
-        width = window.innerWidth;
-        height = window.innerHeight;
+        width = canvas.clientWidth;
+        height = canvas.clientHeight;
         canvas.width = width;
         canvas.height = height;
       }
@@ -112,8 +127,7 @@
 
       let paddle = {}, ball = {}, blocks = [], rows = 4, cols = 10, blockW, blockH = 48;
       let timer = 30, isLeft = false, isRight = false;
-      let gameInterval, timerInterval, flashInterval;
-      let specialBlock = null;
+      let gameInterval, timerInterval;
 
       const blockWords = ['AUDIO', 'ECHOES'];
 
@@ -121,7 +135,6 @@
         paddle = { w: width / 6, h: 10, x: width / 2 - width / 12, y: height - 30, speed: 7 };
         ball = { x: width / 2, y: height - 50, r: 8, dx: 4, dy: -4 };
         timer = 30;
-        specialBlock = null;
         generateBlocks();
         startGame();
       }
@@ -133,7 +146,7 @@
           const row = [];
           for (let c = 0; c < cols; c++) {
             const text = blockWords[(c + r) % blockWords.length];
-            row.push({ x: c * blockW, y: r * blockH, text, hit: false, flash: 0, special: false });
+            row.push({ x: c * blockW, y: r * blockH, text, hit: false });
           }
           blocks.push(row);
         }
@@ -161,6 +174,15 @@
         ctx.fillText(`TIME: ${timer}s`, width - 100, height - 10);
       }
 
+      function drawBlocks() {
+        ctx.font = `${blockH}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        blocks.forEach(row => row.forEach(b => {
+          if (!b.hit) ctx.fillText(b.text, b.x + blockW / 2, b.y + blockH / 2);
+        }));
+      }
+
       function draw() {
         ctx.clearRect(0, 0, width, height);
         drawBlocks();
@@ -169,18 +191,6 @@
         ctx.beginPath();
         ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
         ctx.fill();
-      }
-
-      function drawBlocks() {
-        ctx.font = `${blockH}px monospace`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        blocks.forEach(row => row.forEach(b => {
-          if (!b.hit) {
-            ctx.fillStyle = 'black';
-            ctx.fillText(b.text, b.x + blockW / 2, b.y + blockH / 2);
-          }
-        }));
       }
 
       function update() {
@@ -237,11 +247,15 @@
       function endGame() {
         clearInterval(gameInterval);
         clearInterval(timerInterval);
-        alert('Game Over');
-        document.getElementById('startScreen').style.display = 'flex';
+        document.getElementById('endScreen').style.display = 'flex';
       }
 
       document.getElementById('startButton').addEventListener('click', beginCountdown);
+      document.getElementById('restartButton').addEventListener('click', () => {
+        document.getElementById('endScreen').style.display = 'none';
+        beginCountdown();
+      });
+
       document.getElementById('leftBtn').addEventListener('touchstart', () => isLeft = true);
       document.getElementById('leftBtn').addEventListener('touchend', () => isLeft = false);
       document.getElementById('rightBtn').addEventListener('touchstart', () => isRight = true);

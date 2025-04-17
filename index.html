@@ -9,7 +9,7 @@
       margin: 0;
       padding: 0;
       font-family: monospace;
-      background: white;
+      background: transparent;
       color: black;
       overflow: hidden;
       height: 100vh;
@@ -23,15 +23,34 @@
       width: 100%;
       height: 100%;
       display: block;
-      background: white;
+      background: transparent;
     }
+
+    /* Boot Screen */
+    #bootScreen {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      background: black;
+      color: #00ff00;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+      font-size: 16px;
+      white-space: pre;
+    }
+
     #startScreen {
       position: absolute;
       top: 0; left: 0;
       width: 100%;
       height: 100%;
       background: white;
-      display: flex;
+      display: none;
       flex-direction: column;
       justify-content: center;
       align-items: center;
@@ -42,6 +61,7 @@
       padding: 20px;
       box-sizing: border-box;
     }
+
     #startButton {
       margin-top: 20px;
       padding: 8px 16px;
@@ -50,6 +70,7 @@
       font-family: monospace;
       cursor: pointer;
     }
+
     #mobileControls {
       position: absolute;
       bottom: 0;
@@ -63,6 +84,7 @@
       background: white;
       border-top: 1px dashed black;
     }
+
     .control-btn {
       flex: 1;
       font-size: 24px;
@@ -71,32 +93,117 @@
       padding: 10px 0;
       border-right: 1px dashed black;
     }
+
     .control-btn:last-child {
       border-right: none;
+    }
+
+    .popup {
+      position: absolute;
+      font-size: 12px;
+      color: black;
+      pointer-events: none;
+      animation: floatUp 0.5s ease-out forwards;
+    }
+
+    @keyframes floatUp {
+      from {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      to {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+    }
+
+    .overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      background: white;
+      color: black;
+      font-family: monospace;
+      font-size: 18px;
+      z-index: 999;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    .overlay button {
+      margin-top: 20px;
+      padding: 8px 16px;
+      border: 1px solid black;
+      background: transparent;
+      font-family: monospace;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
   <div id="gameWrapper">
+    <div id="bootScreen" id="boot">
+T  
+ A  
+  M  
+   A  
+    B  
+     R  
+      I  
+       C  
+        K  
+         C  
+          H  
+           I  
+
+> System booting  
+> Nothing to save  
+> Nothing to load  
+> Paddle linked  
+> Ball containment... unstable  
+> Echoes detected  
+> Begin if you must_
+    </div>
+
     <div id="startScreen">
       <h1 style="margin-bottom: 10px;">TAMABRICKCHI</h1>
       <pre style="margin: 0; font-size: 14px;">
-🕹 HOW TO PLAY
+HOW TO PLAY (not that it’ll save you)
 
-← / → to move the paddle
-Tap ◀ / ▶ on mobile
-Press SPACE to launch ball
-Break all AUDIO / ECHOES blocks
-+1s for each block hit
-Game over if time runs out or ball is missed
+Use ← / → to drag your sad little paddle through the void
+Tap LEFT or RIGHT if you're stuck in mobile purgatory
+Press SPACE to launch the ball and your fleeting sense of purpose
+Break all the AUDIO and ECHOES blocks because silence is worse
+Gain +1 second for every block you hit
+Game over if time runs out or you drop the ball
+Which, let’s face it, we all do eventually
       </pre>
       <button id="startButton">START</button>
     </div>
+
     <canvas id="gameCanvas"></canvas>
 
     <div id="mobileControls">
       <div id="leftBtn" class="control-btn">◀</div>
       <div id="rightBtn" class="control-btn">▶</div>
+    </div>
+
+    <div id="winScreen" class="overlay">
+      <h1>YOU WIN</h1>
+      <p>Nothing left<br>Nothing gained</p>
+      <button onclick="location.reload()">Play again?</button>
+    </div>
+
+    <div id="loseScreen" class="overlay">
+      <h1>YOU LOSE</h1>
+      <p>Time wins<br>You didn't</p>
+      <button onclick="location.reload()">Retry?</button>
     </div>
   </div>
 
@@ -104,8 +211,9 @@ Game over if time runs out or ball is missed
     window.addEventListener('DOMContentLoaded', () => {
       const canvas = document.getElementById('gameCanvas');
       const ctx = canvas.getContext('2d');
-      let width, height;
+      const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
+      let width, height;
       function resizeCanvas() {
         width = canvas.clientWidth;
         height = canvas.clientHeight;
@@ -115,12 +223,13 @@ Game over if time runs out or ball is missed
       resizeCanvas();
       window.addEventListener('resize', resizeCanvas);
 
-      const blockWords = ['AUDIO', 'ECHOES'];
       let blocks = [], blockW, blockH = 48, rows = 2, cols = 8;
       let paddle = {}, ball = {};
       let isLeft = false, isRight = false, launched = false;
       let timer = 30;
       let gameLoop, timerLoop;
+      const blockWords = ['AUDIO', 'ECHOES'];
+      const popups = [];
 
       function resetGame() {
         paddle = {
@@ -140,6 +249,7 @@ Game over if time runs out or ball is missed
         launched = false;
         timer = 30;
         generateBlocks();
+        popups.length = 0;
       }
 
       function generateBlocks() {
@@ -158,6 +268,29 @@ Game over if time runs out or ball is missed
           }
           blocks.push(row);
         }
+      }
+
+      function createPopup(x, y, text) {
+        const popup = document.createElement('div');
+        popup.className = 'popup';
+        popup.textContent = text;
+        popup.style.left = x + 'px';
+        popup.style.top = y + 'px';
+        document.body.appendChild(popup);
+        setTimeout(() => {
+          popup.remove();
+        }, 500);
+      }
+
+      function drawExplosion(x, y) {
+        ctx.fillStyle = 'red';
+        ctx.beginPath();
+        ctx.arc(x, y, 10 + Math.random() * 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'orange';
+        ctx.beginPath();
+        ctx.arc(x, y, 5 + Math.random() * 2, 0, Math.PI * 2);
+        ctx.fill();
       }
 
       function drawBlocks() {
@@ -206,7 +339,8 @@ Game over if time runs out or ball is missed
           ball.y += ball.dy;
         }
 
-        if (blocks.flat().every(b => b.hit)) endGame("You Win!");
+        if (blocks.flat().every(b => b.hit)) showWin();
+
         if (isLeft) paddle.x -= paddle.speed;
         if (isRight) paddle.x += paddle.speed;
         paddle.x = Math.max(0, Math.min(width - paddle.w, paddle.x));
@@ -230,10 +364,12 @@ Game over if time runs out or ball is missed
             b.hit = true;
             ball.dy *= -1;
             timer++;
+            drawExplosion(ball.x, ball.y);
+            createPopup(ball.x, ball.y, '+1 Second');
           }
         }));
 
-        if (ball.y > height) endGame("Game Over");
+        if (ball.y > height) showLose();
       }
 
       function loop() {
@@ -248,34 +384,41 @@ Game over if time runs out or ball is missed
         loop();
         timerLoop = setInterval(() => {
           if (launched) timer--;
-          if (timer <= 0) endGame("Time's Up");
+          if (timer <= 0) showLose();
         }, 1000);
       }
 
-      function endGame(msg) {
+      function showWin() {
         cancelAnimationFrame(gameLoop);
         clearInterval(timerLoop);
-        setTimeout(() => {
-          alert(msg);
-          location.reload();
-        }, 100);
+        document.getElementById('winScreen').style.display = 'flex';
       }
 
+      function showLose() {
+        cancelAnimationFrame(gameLoop);
+        clearInterval(timerLoop);
+        document.getElementById('loseScreen').style.display = 'flex';
+      }
       document.getElementById('startButton').addEventListener('click', startGame);
 
+      // Key controls
       window.addEventListener('keydown', e => {
         if (e.key === 'ArrowLeft') isLeft = true;
         if (e.key === 'ArrowRight') isRight = true;
         if (e.key === ' ' && !launched) launched = true;
+        if (booting && !startTriggered) triggerStart();
       });
+
       window.addEventListener('keyup', e => {
         if (e.key === 'ArrowLeft') isLeft = false;
         if (e.key === 'ArrowRight') isRight = false;
       });
 
-      // Touch controls
-      if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-        document.getElementById('mobileControls').style.display = 'flex';
+      // Touch support
+      if (isTouch) {
+        const mobileControls = document.getElementById('mobileControls');
+        mobileControls.style.display = 'flex';
+
         const left = document.getElementById('leftBtn');
         const right = document.getElementById('rightBtn');
 
@@ -283,6 +426,22 @@ Game over if time runs out or ball is missed
         left.addEventListener('touchend', () => isLeft = false);
         right.addEventListener('touchstart', () => isRight = true);
         right.addEventListener('touchend', () => isRight = false);
+
+        // Start on first touch (boot)
+        window.addEventListener('touchstart', () => {
+          if (booting && !startTriggered) triggerStart();
+        });
+      }
+
+      // Bootscreen logic
+      let booting = true;
+      let startTriggered = false;
+      function triggerStart() {
+        startTriggered = true;
+        const boot = document.getElementById('bootScreen');
+        boot.style.display = 'none';
+        document.getElementById('startScreen').style.display = 'flex';
+        booting = false;
       }
     });
   </script>

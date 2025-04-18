@@ -5,110 +5,75 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Breakout of Time v1.0</title>
   <style>
-    /* Fill the iframe container completely */
     html, body {
       margin: 0;
       padding: 0;
-      height: 100%;
-      width: 100%;
+      height: 100%; width: 100%;
       background: transparent;
       overflow: hidden;
-      font-family: monospace;
-      font-weight: normal;
+      font-family: monospace; font-weight: normal;
     }
-    /* Canvas wrapper fills the parent, no border */
     #canvas-wrapper {
-      position: absolute;
-      inset: 0;
+      position: absolute; inset: 0;
       background: transparent;
     }
     canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
+      width: 100%; height: 100%; display: block;
       background: transparent;
     }
-    /* Overlay, timer, popup, controls unchanged */
     #overlay {
-      position: absolute;
-      inset: 0;
-      background: #fff;
-      color: #000;
-      font-size: 1rem;
+      position: absolute; inset: 0;
+      background: #fff; color: #000;
+      font-size: 1.5rem; /* increased */
       white-space: pre;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: flex-start;
-      padding: 2rem;
-      box-sizing: border-box;
-      z-index: 20;
-      font-weight: normal;
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: flex-start;
+      padding: 2rem; box-sizing: border-box;
+      z-index: 20; font-weight: normal;
     }
     @keyframes blink { 50% { opacity: 0; } }
     .cursor {
-      display: inline-block;
-      width: 0.6ch;
-      background: #000;
-      margin-left: 2px;
+      display: inline-block; width: 0.6ch;
+      background: #000; margin-left: 2px;
       animation: blink 1s steps(1) infinite;
       vertical-align: bottom;
     }
     #start-button {
       margin-top: 1rem;
-      background: none;
-      border: 1px solid #000;
-      padding: 0.25rem 0.5rem;
-      font-size: 1rem;
-      color: #000;
-      cursor: pointer;
-      display: none;
-      font-weight: normal;
+      background: none; border: 1px solid #000;
+      padding: 0.5rem 1rem; /* larger touch target */
+      font-size: 1.25rem; /* increased */
+      color: #000; cursor: pointer;
+      display: none; font-weight: normal;
     }
     #start-button:hover { opacity: 0.8; }
     #timer {
-      position: absolute;
-      top: 10px;
-      left: 10px;
+      position: absolute; top: 10px; left: 10px;
       background: rgba(255,255,255,0.8);
-      padding: 4px 8px;
+      padding: 6px 12px;
       border-radius: 4px;
-      font-size: 1.25rem;
-      color: #000;
-      z-index: 10;
-      display: none;
-      font-weight: normal;
+      font-size: 1.5rem; /* increased */
+      color: #000; z-index: 10;
+      display: none; font-weight: normal;
     }
     #center-popup {
-      position: absolute;
-      top: 50%;
-      left: 50%;
+      position: absolute; top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      font-size: 2rem;
+      font-size: 2.5rem; /* increased */
       color: #000;
-      opacity: 0;
-      transition: opacity 0.5s ease-out;
-      pointer-events: none;
-      z-index: 15;
-      font-weight: normal;
+      opacity: 0; transition: opacity 0.5s ease-out;
+      pointer-events: none; z-index: 15; font-weight: normal;
     }
-    /* Touch controls & hints */
     #left-control, #right-control {
-      position: absolute;
-      top: 0;
-      height: 100%;
-      width: 50%;
-      z-index: 5;
-      touch-action: none;
+      position: absolute; top: 0; height: 100%; width: 50%;
+      z-index: 5; touch-action: none;
     }
     #left-control { left: 0; }
     #right-control { right: 0; }
     #left-control::before, #right-control::before {
       content: '';
-      position: absolute;
-      top: 50%;
-      font-size: 2.5rem;
-      opacity: 0.3;
+      position: absolute; top: 50%;
+      font-size: 3rem; /* larger hint */ opacity: 0.3;
       pointer-events: none;
     }
     #left-control::before { content: '◀'; left: 20%; transform: translateY(-50%); }
@@ -128,7 +93,7 @@
     </div>
   </div>
   <script>
-    // Boot screen typing
+    // Typing intro
     const lines = [
       'Breakout of Time v1.0', '',
       '← → to move',
@@ -136,127 +101,98 @@
       'Gain +1s per brick broken', '',
       'Click Start to begin'
     ];
-    let lineIndex = 0, charIndex = 0;
-    const overlay = document.getElementById('overlay'),
-          bootText = document.getElementById('boot-text'),
-          cursor = document.querySelector('.cursor'),
-          startBtn = document.getElementById('start-button'),
-          timerEl = document.getElementById('timer'),
-          popup = document.getElementById('center-popup'),
-          leftControl = document.getElementById('left-control'),
-          rightControl = document.getElementById('right-control');
-
-    function typeNextChar() {
-      if (lineIndex >= lines.length) {
-        cursor.style.display = 'inline-block';
-        startBtn.style.display = 'inline-block';
-        return;
-      }
-      const line = lines[lineIndex];
-      if (charIndex < line.length) {
-        bootText.textContent += line.charAt(charIndex++);
-      } else {
-        bootText.textContent += '\n';
-        lineIndex++;
-        charIndex = 0;
-      }
-      setTimeout(typeNextChar, charIndex === 0 ? 300 : 50);
+    let lineIndex=0, charIndex=0;
+    const overlay=document.getElementById('overlay'),
+          bootText=document.getElementById('boot-text'),
+          cursor=document.querySelector('.cursor'),
+          startBtn=document.getElementById('start-button'),
+          timerEl=document.getElementById('timer'),
+          popup=document.getElementById('center-popup'),
+          leftCtrl=document.getElementById('left-control'),
+          rightCtrl=document.getElementById('right-control');
+    function typeNext(){
+      if(lineIndex>=lines.length){ cursor.style.display='inline-block'; startBtn.style.display='inline-block'; return; }
+      const line=lines[lineIndex];
+      if(charIndex<line.length) bootText.textContent+=line.charAt(charIndex++);
+      else { bootText.textContent+='\n'; lineIndex++; charIndex=0; }
+      setTimeout(typeNext, charIndex===0?300:50);
     }
-    cursor.style.display = 'none';
-    typeNextChar();
+    cursor.style.display='none'; typeNext();
 
-    // Game state
-    let running = false,
-        remainingTime = 30.0,
-        timerInterval;
-    const rows = 4, cols = 10,
-          brickW = 80, brickH = 20, padding = 10;
-    let bricks = [];
-    const paddle = { x:0, y:0, width:100, height:10, dx:0, speed:6 },
-          ball   = { x:0, y:0, radius:6, dx:4, dy:-4 },
-          canvas = document.getElementById('breakout'),
-          ctx    = canvas.getContext('2d');
+    // Game vars
+    let running=false, remainingTime=30.0, timerInterval;
+    const rows=4, cols=10, padding=8;
+    let bricks=[];
+    const paddle={x:0,y:0,width:0,height:10,dx:0,speed:6}, ball={x:0,y:0,radius:6,dx:4,dy:-4},
+          canvas=document.getElementById('breakout'),ctx=canvas.getContext('2d');
+    function resize(){ canvas.width=canvas.clientWidth; canvas.height=canvas.clientHeight; }
+    window.addEventListener('resize',()=>{ resize(); initBricks(); }); resize();
 
-    function resizeCanvas() {
-      canvas.width = canvas.clientWidth;
-      canvas.height = canvas.clientHeight;
-    }
-    window.addEventListener('resize', () => { resizeCanvas(); initBricks(); });
-    resizeCanvas();
-
-    function initBricks() {
-      bricks = [];
-      const offsetX = (canvas.width - (cols * (brickW + padding) - padding)) / 2;
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
+    function initBricks(){
+      bricks=[];
+      const totalPad=(cols-1)*padding;
+      const bw=(canvas.width-totalPad)/cols;
+      paddle.width=bw*1.2; // paddle slightly longer
+      const offsetX=(canvas.width-(bw*cols+totalPad))/2;
+      for(let r=0;r<rows;r++){
+        for(let c=0;c<cols;c++){
           bricks.push({
-            x: offsetX + c * (brickW + padding),
-            y: r * (brickH + padding) + 60,
-            w: brickW,
-            h: brickH,
-            broken: false
+            x:offsetX+c*(bw+padding),
+            y:r*(bw*0.3+padding)+60,
+            w:bw, h:bw*0.3,
+            broken:false
           });
         }
       }
     }
-
-    function resetEntities() {
-      paddle.x = canvas.width/2 - paddle.width/2;
-      paddle.y = canvas.height - 30;
-      ball.x = canvas.width/2;
-      ball.y = canvas.height - 50;
-      ball.dx = 4; ball.dy = -4;
+    function reset(){
+      paddle.x=canvas.width/2-paddle.width/2;
+      paddle.y=canvas.height-30;
+      ball.x=canvas.width/2;
+      ball.y=canvas.height-50;
+      ball.dx=4; ball.dy=-4;
     }
+    function showPopup(txt){ popup.textContent=txt; popup.style.opacity='1'; setTimeout(()=>{popup.style.opacity='0';},800); }
 
-    function showPopup(text) {
-      popup.textContent = text;
-      popup.style.opacity = '1';
-      setTimeout(() => { popup.style.opacity = '0'; }, 800);
+    function draw(){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.fillRect(paddle.x,paddle.y,paddle.width,paddle.height);
+      ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.radius,0,Math.PI*2); ctx.fill(); ctx.closePath();
+      bricks.forEach(b=>{ if(!b.broken) ctx.fillRect(b.x,b.y,b.w,b.h); });
     }
-
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
-      ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2); ctx.fill(); ctx.closePath();
-      bricks.forEach(b => { if (!b.broken) ctx.fillRect(b.x, b.y, b.w, b.h); });
+    function update(){
+      if(!running) return;
+      paddle.x=Math.max(0,Math.min(canvas.width-paddle.width,paddle.x+paddle.dx));
+      ball.x+=ball.dx; ball.y+=ball.dy;
+      if(ball.x<ball.radius||ball.x>canvas.width-ball.radius) ball.dx*=-1;
+      if(ball.y<ball.radius) ball.dy*=-1;
+      if(ball.y>canvas.height) return endGame('Game Over: As expected');
+      if(ball.x>paddle.x&&ball.x<paddle.x+paddle.width&&ball.y>paddle.y-ball.radius) ball.dy*=-1;
+      bricks.forEach(b=>{
+        if(!b.broken&&ball.x>b.x&&ball.x<b.x+b.w&&ball.y>b.y&&ball.y<b.y+b.h){
+          ball.dy*=-1; b.broken=true; remainingTime+=1; showPopup('+1 second');
+        }
+      });
+      if(bricks.every(b=>b.broken)) return endGame('Victory: Temporary and hollow');
+      draw(); requestAnimationFrame(update);
     }
+    function updateTimer(){ remainingTime-=0.1; if(remainingTime<=0)return endGame('Game Over: As expected'); timerEl.textContent=`Time: ${remainingTime.toFixed(2)}s`; }
 
-    function updateGame() {
-      if (!running) return;
-      paddle.x = Math.max(0, Math.min(canvas.width - paddle.width, paddle.x + paddle.dx));
-      ball.x += ball.dx; ball.y += ball.dy;
-      if (ball.x < ball.radius || ball.x > canvas.width - ball.radius) ball.dx *= -1;
-      if (ball.y < ball.radius) ball.dy *= -1;
-      if (ball.y > canvas.height) return endGame('Game Over: As expected');
-      if (ball.x > paddle.x && ball.x < paddle.x + paddle.width && ball.y > paddle.y - ball.radius) ball.dy *= -1;
-      bricks.forEach(b => { if (!b.broken && ball.x > b.x && ball.x < b.x + b.w && ball.y > b.y && ball.y < b.y + b.h) { ball.dy *= -1; b.broken = true; remainingTime += 1; showPopup('+1 second'); }});
-      if (bricks.every(b => b.broken)) return endGame('Victory: Temporary and hollow');
-      draw(); requestAnimationFrame(updateGame);
+    function startGame(){ initBricks(); reset(); remainingTime=30.0;
+      timerEl.textContent=`Time: ${remainingTime.toFixed(2)}s`;
+      overlay.style.display='none'; timerEl.style.display='block'; running=true;
+      clearInterval(timerInterval); timerInterval=setInterval(updateTimer,100);
+      update();
     }
-
-    function updateTimer() {
-      remainingTime -= 0.1;
-      if (remainingTime <= 0) return endGame('Game Over: As expected');
-      timerEl.textContent = `Time: ${remainingTime.toFixed(2)}s`;
-    }
-
-    function startGame() {
-      initBricks(); resetEntities(); remainingTime = 30.0;
-      timerEl.textContent = `Time: ${remainingTime.toFixed(2)}s`;
-      overlay.style.display = 'none'; timerEl.style.display = 'block'; running = true;
-      clearInterval(timerInterval); timerInterval = setInterval(updateTimer, 100); updateGame();
-    }
-
-    function endGame(msg) {
-      running = false; clearInterval(timerInterval); timerEl.style.display = 'none'; overlay.innerHTML = msg + '\n'; startBtn.textContent = 'Try Again?'; startBtn.style.display = 'inline-block'; overlay.appendChild(startBtn); overlay.style.display = 'flex'; }
-
-    startBtn.addEventListener('click', startGame);
-    document.addEventListener('keydown', e => { if (running) { if (e.key === 'ArrowLeft') paddle.dx = -paddle.speed; if (e.key === 'ArrowRight') paddle.dx = paddle.speed; }});
-    document.addEventListener('keyup', e => { if (['ArrowLeft','ArrowRight'].includes(e.key)) paddle.dx = 0; });
-    [leftControl, rightControl].forEach((ctrl, idx) => {
-      ctrl.addEventListener('pointerdown', () => { if (running) paddle.dx = idx === 0 ? -paddle.speed : paddle.speed; });
-      ctrl.addEventListener('pointerup', () => { if (running) paddle.dx = 0; });
-      ctrl.addEventListener('pointercancel', () => { if (running) paddle.dx = 0; });
+    function endGame(msg){ running=false; clearInterval(timerInterval);
+      timerEl.style.display='none'; overlay.innerHTML=msg+'\n'; startBtn.textContent='Try Again?'; startBtn.style.display='inline-block'; overlay.appendChild(startBtn); overlay.style.display='flex'; }
+    startBtn.addEventListener('click',startGame);
+    document.addEventListener('keydown',e=>{ if(running){ if(e.key==='ArrowLeft')paddle.dx=-paddle.speed; if(e.key==='ArrowRight')paddle.dx=paddle.speed; }});
+    document.addEventListener('keyup',e=>{ if(['ArrowLeft','ArrowRight'].includes(e.key))paddle.dx=0; });
+    [leftControl,rightControl].forEach((ctrl,idx)=>{
+      ctrl.addEventListener('pointerdown',()=>{ if(running) paddle.dx=idx===0?-paddle.speed:paddle.speed; });
+      ctrl.addEventListener('pointerup',()=>{ if(running) paddle.dx=0; });
+      ctrl.addEventListener('pointercancel',()=>{ if(running) paddle.dx=0; });
     });
   </script>
 </body>

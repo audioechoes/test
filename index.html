@@ -1,293 +1,386 @@
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const COMBO_TIME = 800;
-  const PARTICLE_COUNT = 12;
-  const PARTICLE_LIFE = 30;
-  const BOOT_LINES = [
-    'initialising challenge tv listings',
-    'booting snake ii',
-    'loading spiceworld.iso',
-    'extracting brass eye segment',
-    'setting oasis attitude level: maximum',
-    'blue peter badge auth granted',
-    'calibrating uk gold reruns'
-  ];
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Breakout Game</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      font-family: monospace;
+    }
+    canvas {
+      display: none;
+      width: 100%;
+      height: 100%;
+      background: #eee;
+    }
+    #bootText, #countdownScreen, #endOverlay, #startScreen, #rulesScreen {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: white;
+      font-size: 18px;
+      flex-direction: column;
+      z-index: 10;
+    }
+    #timerOverlay {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 18px;
+      background: rgba(255,255,255,0.8);
+      padding: 5px;
+    }
+    .cursor {
+      animation: blink 0.5s step-end infinite alternate;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+    #mobileControls {
+      position: absolute;
+      bottom: 10px;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 20;
+    }
+    button {
+      font-size: 18px;
+      padding: 10px 20px;
+      cursor: pointer;
+    }
+    #launchBtn {
+      position: absolute;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+    }
+  </style>
+</head>
+<body>
 
-  const bootEl = document.getElementById('bootText');
-  const endScreen = document.getElementById('endOverlay');
-  const countdown = document.getElementById('countdownScreen');
-  const canvas = document.getElementById('gameCanvas');
-  const ctx = canvas.getContext('2d');
-  const overlay = document.getElementById('timerOverlay');
-  const mobileControls = document.getElementById('mobileControls');
-  const launchBtn = document.getElementById('launchBtn');
-  const restartBtn = document.getElementById('restartBtn');
+  <div id="startScreen">
+    <h1>Breakout: Retro Boot</h1>
+    <button onclick="showRules()">View Rules</button>
+  </div>
 
-  let width, height, loopId, lastTime = 0;
-  let timer, isLeft, isRight, launched;
-  let paddle, ball, blocks, particles;
-  let comboHits, lastHitTime;
+  <div id="rulesScreen">
+    <p>Hit blocks. Don't let the ball fall. Gain time per block!</p>
+    <button onclick="startCountdown()">Start Game</button>
+  </div>
 
-  const blockWords = ['audio', 'echoes'];
+  <div id="bootText"></div>
+  <div id="countdownScreen"></div>
+  <canvas id="gameCanvas"></canvas>
+  <div id="timerOverlay"></div>
 
-  function show(el, show = true) {
-    el.style.display = show ? 'block' : 'none';
-  }
+  <div id="endOverlay">
+    <div></div>
+    <button id="restartBtn">Restart</button>
+  </div>
 
-  function typeLine(text, callback) {
-    let i = 0;
-    const span = document.createElement('div');
-    const cursor = document.createElement('span');
-    cursor.className = 'cursor';
-    cursor.textContent = '_';
-    span.textContent = '> ';
-    span.appendChild(cursor);
-    bootEl.appendChild(span);
-    function typeChar() {
-      if (i < text.length) {
-        span.insertBefore(document.createTextNode(text[i]), cursor);
-        i++;
-        setTimeout(typeChar, 30);
-      } else {
-        span.removeChild(cursor);
-        callback();
+  <div id="mobileControls">
+    <button id="leftBtn">◀️</button>
+    <button id="rightBtn">▶️</button>
+  </div>
+
+  <button id="launchBtn">Launch</button>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const COMBO_TIME = 800;
+      const PARTICLE_COUNT = 12;
+      const PARTICLE_LIFE = 30;
+      const BOOT_LINES = [
+        'initialising challenge tv listings',
+        'booting snake ii',
+        'loading spiceworld.iso',
+        'extracting brass eye segment',
+        'setting oasis attitude level: maximum',
+        'blue peter badge auth granted',
+        'calibrating uk gold reruns'
+      ];
+
+      const bootEl = document.getElementById('bootText');
+      const endScreen = document.getElementById('endOverlay');
+      const countdown = document.getElementById('countdownScreen');
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas.getContext('2d');
+      const overlay = document.getElementById('timerOverlay');
+      const launchBtn = document.getElementById('launchBtn');
+      const restartBtn = document.getElementById('restartBtn');
+
+      let width, height, loopId, lastTime = 0;
+      let timer, isLeft, isRight, launched;
+      let paddle, ball, blocks, particles;
+      let comboHits, lastHitTime;
+
+      const blockWords = ['audio', 'echoes'];
+
+      function show(el, show = true) {
+        el.style.display = show ? 'flex' : 'none';
       }
-    }
-    typeChar();
-  }
 
-  function startTyping(line = 0) {
-    if (line < BOOT_LINES.length) {
-      typeLine(BOOT_LINES[line], () => startTyping(line + 1));
-    }
-  }
+      function typeLine(text, callback) {
+        let i = 0;
+        const span = document.createElement('div');
+        const cursor = document.createElement('span');
+        cursor.className = 'cursor';
+        cursor.textContent = '_';
+        span.textContent = '> ';
+        span.appendChild(cursor);
+        bootEl.appendChild(span);
+        function typeChar() {
+          if (i < text.length) {
+            span.insertBefore(document.createTextNode(text[i]), cursor);
+            i++;
+            setTimeout(typeChar, 30);
+          } else {
+            span.removeChild(cursor);
+            callback();
+          }
+        }
+        typeChar();
+      }
 
-  window.showRules = () => {
-    show(document.getElementById('startScreen'), false);
-    show(document.getElementById('rulesScreen'));
-  };
+      function startTyping(line = 0) {
+        if (line < BOOT_LINES.length) {
+          typeLine(BOOT_LINES[line], () => startTyping(line + 1));
+        }
+      }
 
-  window.startCountdown = () => {
-    show(document.getElementById('rulesScreen'), false);
-    show(bootEl, false);
-    show(countdown, true);
+      window.showRules = () => {
+        show(document.getElementById('startScreen'), false);
+        show(document.getElementById('rulesScreen'));
+      };
 
-    const steps = ['3', '2', '1'];
-    let i = 0;
-    const tick = () => {
-      countdown.textContent = steps[i];
-      countdown.style.animation = 'none';
-      countdown.offsetHeight;
-      countdown.style.animation = 'flash 0.3s ease-in-out';
-      i++;
-      if (i < steps.length) setTimeout(tick, 500);
-      else setTimeout(() => {
-        countdown.textContent = 'start.';
-        countdown.style.animation = 'flash 0.2s ease-in-out';
-        setTimeout(() => {
-          show(countdown, false);
-          show(canvas);
-          startGame();
-        }, 500);
-      }, 500);
-    };
-    tick();
-  };
+      window.startCountdown = () => {
+        show(document.getElementById('rulesScreen'), false);
+        show(bootEl, false);
+        show(countdown, true);
 
-  function resizeCanvas() {
-    const dpr = window.devicePixelRatio || 1;
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
-    canvas.width = Math.floor(canvas.offsetWidth * dpr);
-    canvas.height = Math.floor(canvas.offsetHeight * dpr);
-    width = canvas.width;
-    height = canvas.height;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
+        const steps = ['3', '2', '1'];
+        let i = 0;
+        const tick = () => {
+          countdown.textContent = steps[i];
+          countdown.style.animation = 'none';
+          countdown.offsetHeight;
+          countdown.style.animation = 'flash 0.3s ease-in-out';
+          i++;
+          if (i < steps.length) setTimeout(tick, 500);
+          else setTimeout(() => {
+            countdown.textContent = 'start.';
+            countdown.style.animation = 'flash 0.2s ease-in-out';
+            setTimeout(() => {
+              show(countdown, false);
+              show(canvas);
+              startGame();
+            }, 500);
+          }, 500);
+        };
+        tick();
+      };
 
-  function generateBlocks() {
-    const cols = Math.floor(width / 100);
-    const rows = 2;
-    const blockW = width / cols;
-    const blockH = 48;
-    blocks = [];
-    const words = [...blockWords, ...blockWords].sort(() => 0.5 - Math.random());
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        blocks.push({
-          x: c * blockW,
-          y: 30 + r * blockH,
-          w: blockW,
-          h: blockH,
-          text: words[(r * cols + c) % words.length],
-          hit: false
+      function resizeCanvas() {
+        const dpr = window.devicePixelRatio || 1;
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        canvas.width = Math.floor(canvas.offsetWidth * dpr);
+        canvas.height = Math.floor(canvas.offsetHeight * dpr);
+        width = canvas.width;
+        height = canvas.height;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      function generateBlocks() {
+        const cols = Math.floor(width / 100);
+        const rows = 2;
+        const blockW = width / cols;
+        const blockH = 48;
+        blocks = [];
+        const words = [...blockWords, ...blockWords].sort(() => 0.5 - Math.random());
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            blocks.push({
+              x: c * blockW,
+              y: 30 + r * blockH,
+              w: blockW,
+              h: blockH,
+              text: words[(r * cols + c) % words.length],
+              hit: false
+            });
+          }
+        }
+      }
+
+      function emitParticles(x, y) {
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+          particles.push({
+            x, y,
+            dx: Math.cos(i * Math.PI / 6) * 2,
+            dy: Math.sin(i * Math.PI / 6) * 2,
+            life: PARTICLE_LIFE
+          });
+        }
+      }
+
+      function drawParticles() {
+        particles = particles.filter(p => p.life-- > 0);
+        particles.forEach(p => {
+          ctx.fillStyle = `rgba(255, 0, 0, ${p.life / PARTICLE_LIFE})`;
+          ctx.fillRect(p.x, p.y, 2, 2);
+          p.x += p.dx;
+          p.y += p.dy;
         });
       }
-    }
-  }
 
-  function emitParticles(x, y) {
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      particles.push({
-        x, y,
-        dx: Math.cos(i * Math.PI / 6) * 2,
-        dy: Math.sin(i * Math.PI / 6) * 2,
-        life: PARTICLE_LIFE
-      });
-    }
-  }
+      function resetGame() {
+        resizeCanvas();
+        paddle = { w: width / 5, h: 16, x: width / 2 - width / 10, y: height - 60, speed: 6 };
+        ball = {
+          x: width / 2,
+          y: height - 80,
+          r: 6,
+          dx: (Math.random() > 0.5 ? 1 : -1) * 3.5,
+          dy: -4
+        };
+        timer = 30;
+        isLeft = isRight = launched = false;
+        comboHits = 0;
+        lastHitTime = 0;
+        generateBlocks();
+        particles = [];
+        lastTime = performance.now();
+      }
 
-  function drawParticles() {
-    particles = particles.filter(p => p.life-- > 0);
-    particles.forEach(p => {
-      ctx.fillStyle = `rgba(255, 0, 0, ${p.life / PARTICLE_LIFE})`;
-      ctx.fillRect(p.x, p.y, 2, 2);
-      p.x += p.dx;
-      p.y += p.dy;
-    });
-  }
-
-  function resetGame() {
-    resizeCanvas();
-    paddle = { w: width / 5, h: 16, x: width / 2 - width / 10, y: height - 60, speed: 6 };
-    ball = {
-      x: width / 2,
-      y: height - 80,
-      r: 6,
-      dx: (Math.random() > 0.5 ? 1 : -1) * 3.5,
-      dy: -4
-    };
-    timer = 30;
-    isLeft = isRight = launched = false;
-    comboHits = 0;
-    lastHitTime = 0;
-    generateBlocks();
-    particles = [];
-    lastTime = performance.now();
-  }
-
-  function drawGame() {
-    ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = 'black';
-    ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
-    ctx.beginPath();
-    ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
-    ctx.fill();
-    overlay.textContent = timer + 's';
-
-    blocks.forEach(b => {
-      if (!b.hit) {
-        ctx.strokeStyle = 'black';
-        ctx.strokeRect(b.x, b.y, b.w, b.h);
-        ctx.font = `${Math.floor(Math.min(b.w, b.h) / 3)}px monospace`;
+      function drawGame() {
+        ctx.clearRect(0, 0, width, height);
         ctx.fillStyle = 'black';
-        ctx.textAlign = 'center';
-        ctx.fillText(b.text, b.x + b.w / 2, b.y + b.h / 2 + 5);
+        ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+        ctx.fill();
+        overlay.textContent = timer + 's';
+
+        blocks.forEach(b => {
+          if (!b.hit) {
+            ctx.strokeStyle = 'black';
+            ctx.strokeRect(b.x, b.y, b.w, b.h);
+            ctx.font = `${Math.floor(Math.min(b.w, b.h) / 3)}px monospace`;
+            ctx.fillStyle = 'black';
+            ctx.textAlign = 'center';
+            ctx.fillText(b.text, b.x + b.w / 2, b.y + b.h / 2 + 5);
+          }
+        });
+
+        drawParticles();
       }
-    });
 
-    drawParticles();
-  }
+      function update(now) {
+        if (!launched) {
+          ball.x = paddle.x + paddle.w / 2;
+          ball.y = paddle.y - ball.r;
+        } else {
+          ball.x += ball.dx;
+          ball.y += ball.dy;
+        }
 
-  function update(now) {
-    if (!launched) {
-      ball.x = paddle.x + paddle.w / 2;
-      ball.y = paddle.y - ball.r;
-    } else {
-      ball.x += ball.dx;
-      ball.y += ball.dy;
-    }
+        if (now - lastTime >= 1000 && launched) {
+          timer--;
+          lastTime = now;
+        }
 
-    if (now - lastTime >= 1000 && launched) {
-      timer--;
-      lastTime = now;
-    }
+        if (isLeft) paddle.x -= paddle.speed;
+        if (isRight) paddle.x += paddle.speed;
+        paddle.x = Math.max(0, Math.min(width - paddle.w, paddle.x));
 
-    if (isLeft) paddle.x -= paddle.speed;
-    if (isRight) paddle.x += paddle.speed;
-    paddle.x = Math.max(0, Math.min(width - paddle.w, paddle.x));
+        if (ball.x <= ball.r || ball.x >= width - ball.r) ball.dx *= -1;
+        if (ball.y <= ball.r) ball.dy *= -1;
 
-    if (ball.x <= ball.r || ball.x >= width - ball.r) ball.dx *= -1;
-    if (ball.y <= ball.r) ball.dy *= -1;
+        if (ball.y + ball.r >= paddle.y && ball.x >= paddle.x && ball.x <= paddle.x + paddle.w) {
+          const hitPoint = (ball.x - paddle.x) / paddle.w - 0.5;
+          const angle = hitPoint * Math.PI / 3;
+          const speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+          ball.dx = speed * Math.sin(angle);
+          ball.dy = -Math.abs(speed * Math.cos(angle));
+          ball.y = paddle.y - ball.r;
+        }
 
-    if (ball.y + ball.r >= paddle.y && ball.x >= paddle.x && ball.x <= paddle.x + paddle.w) {
-      const hitPoint = (ball.x - paddle.x) / paddle.w - 0.5;
-      const angle = hitPoint * Math.PI / 3;
-      const speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
-      ball.dx = speed * Math.sin(angle);
-      ball.dy = -Math.abs(speed * Math.cos(angle));
-      ball.y = paddle.y - ball.r;
-    }
+        let currentTime = now;
+        blocks.forEach(b => {
+          if (!b.hit && ball.x >= b.x && ball.x <= b.x + b.w && ball.y >= b.y && ball.y <= b.y + b.h) {
+            b.hit = true;
+            ball.dy *= -1;
+            timer = Math.min(timer + 1, 60);
+            comboHits = (currentTime - lastHitTime < COMBO_TIME) ? comboHits + 1 : 1;
+            lastHitTime = currentTime;
+            if (comboHits >= 3) emitParticles(b.x + b.w / 2, b.y + b.h / 2);
+          }
+        });
 
-    let currentTime = now;
-    blocks.forEach(b => {
-      if (!b.hit && ball.x >= b.x && ball.x <= b.x + b.w && ball.y >= b.y && ball.y <= b.y + b.h) {
-        b.hit = true;
-        ball.dy *= -1;
-        timer = Math.min(timer + 1, 60);
-        comboHits = (currentTime - lastHitTime < COMBO_TIME) ? comboHits + 1 : 1;
-        lastHitTime = currentTime;
-        if (comboHits >= 3) emitParticles(b.x + b.w / 2, b.y + b.h / 2);
+        if (ball.y > height || timer <= 0) return endGame('You lose!');
+        if (blocks.every(b => b.hit)) return endGame('You win!');
+
+        drawGame();
+        loopId = requestAnimationFrame(update);
       }
+
+      function endGame(msg) {
+        show(canvas, false);
+        endScreen.firstChild.textContent = msg;
+        show(endScreen);
+        cancelAnimationFrame(loopId);
+      }
+
+      function startGame() {
+        resetGame();
+        loopId = requestAnimationFrame(update);
+      }
+
+      document.getElementById('leftBtn')?.addEventListener('touchstart', () => isLeft = true);
+      document.getElementById('leftBtn')?.addEventListener('touchend', () => isLeft = false);
+      document.getElementById('rightBtn')?.addEventListener('touchstart', () => isRight = true);
+      document.getElementById('rightBtn')?.addEventListener('touchend', () => isRight = false);
+      launchBtn?.addEventListener('click', () => launched = true);
+
+      window.addEventListener('keydown', e => {
+        if (e.key === 'ArrowLeft') isLeft = true;
+        if (e.key === 'ArrowRight') isRight = true;
+        if (e.key === ' ' && !launched) launched = true;
+        if (e.key === 'Enter' && endScreen.style.display === 'flex') {
+          restartBtn.click();
+        }
+      });
+
+      window.addEventListener('keyup', e => {
+        if (e.key === 'ArrowLeft') isLeft = false;
+        if (e.key === 'ArrowRight') isRight = false;
+      });
+
+      window.addEventListener('resize', () => {
+        cancelAnimationFrame(loopId);
+        resetGame();
+        loopId = requestAnimationFrame(update);
+      });
+
+      restartBtn?.addEventListener('click', () => {
+        cancelAnimationFrame(loopId);
+        show(canvas);
+        show(endScreen, false);
+        startGame();
+      });
+
+      startTyping();
     });
+  </script>
 
-    if (ball.y > height || timer <= 0) return endGame('you lose');
-    if (blocks.every(b => b.hit)) return endGame('you win');
-
-    drawGame();
-    loopId = requestAnimationFrame(update);
-  }
-
-  function endGame(msg) {
-    show(canvas, false);
-    endScreen.firstChild.textContent = msg;
-    show(endScreen);
-    cancelAnimationFrame(loopId);
-  }
-
-  function startGame() {
-    resetGame();
-    loopId = requestAnimationFrame(update);
-  }
-
-  // Controls
-  document.getElementById('leftBtn')?.addEventListener('touchstart', () => isLeft = true);
-  document.getElementById('leftBtn')?.addEventListener('touchend', () => isLeft = false);
-  document.getElementById('rightBtn')?.addEventListener('touchstart', () => isRight = true);
-  document.getElementById('rightBtn')?.addEventListener('touchend', () => isRight = false);
-  launchBtn?.addEventListener('click', () => launched = true);
-
-  window.addEventListener('keydown', e => {
-    if (e.key === 'ArrowLeft') isLeft = true;
-    if (e.key === 'ArrowRight') isRight = true;
-    if (e.key === ' ' && !launched) launched = true;
-    if (e.key === 'Enter' && endScreen.style.display === 'block') {
-      restartBtn.click();
-    }
-  });
-
-  window.addEventListener('keyup', e => {
-    if (e.key === 'ArrowLeft') isLeft = false;
-    if (e.key === 'ArrowRight') isRight = false;
-  });
-
-  let resizeTimeout;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(() => {
-      cancelAnimationFrame(loopId);
-      resetGame();
-      loopId = requestAnimationFrame(update);
-    }, 200);
-  });
-
-  restartBtn?.addEventListener('click', () => {
-    cancelAnimationFrame(loopId);
-    show(canvas);
-    show(endScreen, false);
-    startGame();
-  });
-
-  startTyping();
-});
-</script>
+</body>
+</html>

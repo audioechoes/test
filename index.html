@@ -3,14 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Breakout of Time v1.0</title>
+  <title>Breakout of Time v1.1</title>
   <style>
     html, body {
       margin: 0; padding: 0;
       height: 100%; width: 100%;
       background: transparent;
       overflow: hidden;
-      font-family: monospace; font-weight: normal;
+      font-family: monospace;
+      font-weight: normal;
     }
     #canvas-wrapper {
       position: absolute; inset: 0;
@@ -58,10 +59,10 @@
       opacity: 0; transition: opacity 0.5s ease-out;
       pointer-events: none; z-index: 15;
     }
-    /* Touch controls with visible hints */
     #left-control, #right-control {
-      position: absolute; top: 0; height: 100%; width: 50%;
+      position: absolute; top: 0; height: 100%; width: 60%;
       z-index: 5; touch-action: none;
+      opacity: 0.1;
     }
     #left-control { left: 0; }
     #right-control { right: 0; }
@@ -92,9 +93,8 @@
     </div>
   </div>
   <script>
-    // Boot screen typing
     const lines = [
-      'Breakout of Time v1.0', '',
+      'Breakout of Time v1.1', '',
       '← → to move',
       'Break all bricks',
       'Gain +1s per brick broken', '',
@@ -112,6 +112,8 @@
           canvas       = document.getElementById('breakout'),
           ctx          = canvas.getContext('2d');
 
+    cursor.style.display = 'none';
+
     function typeNextChar() {
       if (lineIndex >= lines.length) {
         cursor.style.display = 'inline-block';
@@ -127,40 +129,36 @@
       }
       setTimeout(typeNextChar, charIndex === 0 ? 300 : 50);
     }
-    cursor.style.display = 'none';
+
     typeNextChar();
 
-    // Game state
-    let running       = false,
+    let running = false,
         remainingTime = 30.0,
         timerInterval;
-    const rows     = 4, cols = 10, padding = 8;
+    const rows = 4, cols = 10, padding = 8;
     let bricks = [];
     const paddle = { x:0, y:0, width:0, height:10, dx:0, speed:6 },
           ball   = { x:0, y:0, radius:6, dx:4, dy:-4 };
 
-    // Responsive setup
-    function resize() {
+    function resizeCanvas() {
       canvas.width  = canvas.clientWidth;
       canvas.height = canvas.clientHeight;
     }
-    window.addEventListener('resize', () => { resize(); initBricks(); });
-    resize();
+    window.addEventListener('resize', () => { resizeCanvas(); initBricks(); });
+    resizeCanvas();
 
     function initBricks() {
       bricks = [];
       const totalPad = (cols - 1) * padding;
       const bw       = (canvas.width - totalPad) / cols;
-      paddle.width   = bw * 1.2;  // Paddle 120% of brick width
+      paddle.width   = bw * 1.2;
       const offsetX  = (canvas.width - (bw*cols + totalPad)) / 2;
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           bricks.push({
             x: offsetX + c * (bw + padding),
             y: r * (bw * 0.3 + padding) + 60,
-            w: bw,
-            h: bw * 0.3,
-            broken: false
+            w: bw, h: bw * 0.3, broken: false
           });
         }
       }
@@ -182,46 +180,51 @@
 
     function draw() {
       ctx.clearRect(0,0,canvas.width,canvas.height);
-      // Paddle
       ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
-      // Ball
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI*2);
-      ctx.fill();
-      ctx.closePath();
-      // Bricks
+      ctx.fill(); ctx.closePath();
       bricks.forEach(b => {
         if (!b.broken) ctx.fillRect(b.x, b.y, b.w, b.h);
       });
     }
 
-    function update() {
+    function updateGame() {
       if (!running) return;
-      // Move paddle
       paddle.x = Math.max(0, Math.min(canvas.width - paddle.width, paddle.x + paddle.dx));
-      // Move ball
-      ball.x += ball.dx; ball.y += ball.dy;
+      ball.x += ball.dx;
+      ball.y += ball.dy;
+
       if (ball.x < ball.radius || ball.x > canvas.width - ball.radius) ball.dx *= -1;
       if (ball.y < ball.radius) ball.dy *= -1;
       if (ball.y > canvas.height) return endGame('Game Over: As expected');
-      if (ball.x > paddle.x && ball.x < paddle.x + paddle.width && ball.y > paddle.y - ball.radius) {
-        ball.dy *= -1;
+
+      // Paddle collision with angle logic
+      if (ball.y + ball.radius >= paddle.y &&
+          ball.x >= paddle.x && ball.x <= paddle.x + paddle.width) {
+        const hitPos = (ball.x - paddle.x) / paddle.width;
+        const angle = (hitPos - 0.5) * Math.PI / 2;
+        const speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+        ball.dx = speed * Math.sin(angle);
+        ball.dy = -speed * Math.cos(angle);
       }
-      // Brick collisions
-      bricks.forEach(b => {
+
+      for (let b of bricks) {
         if (!b.broken &&
             ball.x > b.x && ball.x < b.x + b.w &&
             ball.y > b.y && ball.y < b.y + b.h) {
-          ball.dy   *= -1;
-          b.broken   = true;
+          ball.dy *= -1;
+          b.broken = true;
           remainingTime += 1;
           showPopup('+1 second');
+          break; // 🔥 Prevent multi-collision
         }
-      });
-      // Win?
+      }
+
       if (bricks.every(b => b.broken)) return endGame('Victory: Temporary and hollow');
+
       draw();
-      requestAnimationFrame(update);
+      requestAnimationFrame(updateGame);
     }
 
     function updateTimer() {
@@ -240,7 +243,7 @@
       running = true;
       clearInterval(timerInterval);
       timerInterval = setInterval(updateTimer, 100);
-      update();
+      updateGame();
     }
 
     function endGame(msg) {
@@ -254,8 +257,8 @@
       overlay.style.display = 'flex';
     }
 
-    // Keyboard
     startBtn.addEventListener('click', startGame);
+
     document.addEventListener('keydown', e => {
       if (running) {
         if (e.key === 'ArrowLeft')  paddle.dx = -paddle.speed;
@@ -266,7 +269,6 @@
       if (['ArrowLeft','ArrowRight'].includes(e.key)) paddle.dx = 0;
     });
 
-    // Touch
     [leftControl, rightControl].forEach((ctrl, idx) => {
       ctrl.addEventListener('pointerdown', () => {
         if (running) paddle.dx = idx === 0 ? -paddle.speed : paddle.speed;

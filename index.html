@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF" />
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Breakout of Time v1.6</title>
+  <title>Breakout of Time v1.7</title>
   <style>
     html, body {
       margin: 0; padding: 0;
@@ -30,7 +30,8 @@
     }
     #overlay {
       position: absolute; inset: 0;
-      background: #fff; color: #000;
+      background: rgba(0, 0, 0, 0.3);
+      color: #fff;
       font-size: 1.5rem; white-space: pre;
       display: flex; flex-direction: column;
       justify-content: center; align-items: flex-start;
@@ -38,19 +39,27 @@
       z-index: 20;
       opacity: 1;
       transition: opacity 0.6s ease;
+      backdrop-filter: blur(3px);
+    }
+    .fade-in {
+      animation: fadein 0.6s ease-in forwards;
+    }
+    @keyframes fadein {
+      from { opacity: 0; }
+      to   { opacity: 1; }
     }
     @keyframes blink { 50% { opacity: 0; } }
     .cursor {
       display: inline-block; width: 0.6ch;
-      background: #000; margin-left: 2px;
+      background: #fff; margin-left: 2px;
       animation: blink 1s steps(1) infinite;
       vertical-align: bottom;
     }
     #start-button {
       margin-top: 1rem;
-      background: none; border: 1px solid #000;
+      background: none; border: 1px solid #fff;
       padding: 0.5rem 1rem;
-      font-size: 1.25rem; color: #000;
+      font-size: 1.25rem; color: #fff;
       cursor: pointer; display: none;
     }
     #start-button:hover { opacity: 0.8; }
@@ -70,9 +79,22 @@
     #center-popup {
       position: absolute; top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      font-size: 2.5rem; color: #000;
+      font-size: 2.5rem; color: #fff;
       opacity: 0; transition: opacity 0.5s ease-out;
       pointer-events: none; z-index: 15;
+    }
+    #countdown {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 4rem;
+      font-weight: bold;
+      color: #0ff;
+      text-shadow: 0 0 10px #0ff, 0 0 20px #0ff;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 25;
+      transition: opacity 0.3s ease;
     }
     #left-control, #right-control {
       position: absolute; top: 0; height: 100%; width: 60%;
@@ -100,6 +122,7 @@
     <div id="timebar"></div>
     <div id="timer">Time: 30.00s</div>
     <div id="center-popup"></div>
+    <div id="countdown"></div>
     <div id="left-control"></div>
     <div id="right-control"></div>
     <div id="overlay">
@@ -109,7 +132,7 @@
   </div>
   <script>
     const lines = [
-      'Breakout of Time v1.6 — Blackout Edition', '',
+      'Breakout of Time v1.7 — Cinematic Edition', '',
       '← / → to shuffle your regrets',
       'Destroy bricks, not your self-esteem',
       '+1s per brick — because apparently you need a reward for basic effort', '',
@@ -124,13 +147,22 @@
           timerEl      = document.getElementById('timer'),
           timebar      = document.getElementById('timebar'),
           popup        = document.getElementById('center-popup'),
+          countdown    = document.getElementById('countdown'),
           leftControl  = document.getElementById('left-control'),
           rightControl = document.getElementById('right-control'),
           canvas       = document.getElementById('breakout'),
           wrapper      = document.getElementById('canvas-wrapper'),
           ctx          = canvas.getContext('2d');
 
-    cursor.style.display = 'none';
+    const paddle = { x:0, y:0, width:0, height:10, dx:0, speed:6 },
+          ball   = { x:0, y:0, radius:6, dx:4, dy:-4 };
+
+    const brickColors = ['#2e2e2e', '#1e1e1e', '#121212', '#000000'];
+    const shake = { x: 0, y: 0, duration: 0 };
+
+    let running = false, remainingTime = 30.0, timerInterval;
+    let bricks = [], ballTrail = [], particles = [];
+
     function typeNextChar() {
       if (lineIndex >= lines.length) {
         cursor.style.display = 'inline-block';
@@ -146,19 +178,8 @@
       }
       setTimeout(typeNextChar, charIndex === 0 ? 300 : 50);
     }
+    cursor.style.display = 'none';
     typeNextChar();
-
-    let running = false, remainingTime = 30.0, timerInterval;
-    const rows = 4, cols = 10, padding = 8;
-    let bricks = [], ballTrail = [], particles = [];
-
-    const paddle = { x:0, y:0, width:0, height:10, dx:0, speed:6 },
-          ball   = { x:0, y:0, radius:6, dx:4, dy:-4 };
-
-    // 🖤 Shades of black for brick tones
-    const brickColors = ['#2e2e2e', '#1e1e1e', '#121212', '#000000'];
-
-    const shake = { x: 0, y: 0, duration: 0 };
 
     function resizeCanvas() {
       canvas.width  = canvas.clientWidth;
@@ -169,6 +190,7 @@
 
     function initBricks() {
       bricks = [];
+      const rows = 4, cols = 10, padding = 8;
       const totalPad = (cols - 1) * padding;
       const bw = (canvas.width - totalPad) / cols;
       paddle.width = bw * 1.2;
@@ -244,7 +266,7 @@
       });
       ctx.globalAlpha = 1;
 
-      ctx.fillStyle = '#000';
+      ctx.fillStyle = '#fff';
       ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
 
       ctx.beginPath();
@@ -335,13 +357,35 @@
       timebar.style.width = `${percent * 100}%`;
     }
 
+    function startCountdown(callback) {
+      const sequence = ['3', '2', '1', 'BEGIN'];
+      let i = 0;
+
+      const next = () => {
+        if (i >= sequence.length) {
+          countdown.style.opacity = '0';
+          setTimeout(() => {
+            countdown.textContent = '';
+            callback();
+          }, 300);
+          return;
+        }
+        countdown.textContent = sequence[i++];
+        countdown.style.opacity = '1';
+        setTimeout(() => {
+          countdown.style.opacity = '0';
+          setTimeout(next, 300);
+        }, 700);
+      };
+
+      next();
+    }
+
     function startGame() {
       initBricks();
       resetEntities();
       remainingTime = 30.0;
       timerEl.textContent = `Time: ${remainingTime.toFixed(2)}s`;
-      overlay.style.opacity = 0;
-      setTimeout(() => { overlay.style.display = 'none'; }, 600);
       timerEl.style.display = 'block';
       running = true;
       clearInterval(timerInterval);
@@ -354,6 +398,9 @@
       clearInterval(timerInterval);
       timerEl.style.display = 'none';
       overlay.style.display = 'flex';
+      overlay.classList.remove('fade-in');
+      void overlay.offsetWidth; // force reflow
+      overlay.classList.add('fade-in');
       overlay.style.opacity = 1;
 
       const message = state === 'win'
@@ -364,15 +411,31 @@
       startBtn.textContent = 'Try Again?';
       startBtn.style.display = 'inline-block';
       overlay.appendChild(startBtn);
+
+      if (state === 'lose') {
+        const theEnd = document.createElement('div');
+        theEnd.textContent = 'The End.';
+        theEnd.style.fontSize = '3rem';
+        theEnd.style.marginTop = '1rem';
+        theEnd.style.opacity = '0';
+        theEnd.style.transition = 'opacity 2s ease';
+        overlay.appendChild(theEnd);
+        setTimeout(() => theEnd.style.opacity = '1', 600);
+      }
     }
 
-    startBtn.addEventListener('click', startGame);
+    startBtn.addEventListener('click', () => {
+      overlay.style.display = 'none';
+      startCountdown(startGame);
+    });
+
     document.addEventListener('keydown', e => {
       if (running) {
         if (e.key === 'ArrowLeft')  paddle.dx = -paddle.speed;
         if (e.key === 'ArrowRight') paddle.dx =  paddle.speed;
       }
     });
+
     document.addEventListener('keyup', e => {
       if (['ArrowLeft','ArrowRight'].includes(e.key)) paddle.dx = 0;
     });

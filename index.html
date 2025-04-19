@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Breakout of Time v1.3</title>
+  <title>Breakout of Time v1.5</title>
   <style>
     html, body {
       margin: 0; padding: 0;
@@ -18,6 +18,9 @@
     #canvas-wrapper {
       position: absolute; inset: 0;
       background: transparent;
+      border: 1px solid #000;
+      box-sizing: border-box;
+      transition: transform 0.1s;
     }
     canvas {
       width: 100%; height: 100%;
@@ -106,7 +109,7 @@
   </div>
   <script>
     const lines = [
-      'Breakout of Time v1.3', '',
+      'Breakout of Time v1.5', '',
       '← / → to shuffle your regrets',
       'Destroy bricks, not your self-esteem',
       '+1s per brick — because apparently you need a reward for basic effort', '',
@@ -123,6 +126,7 @@
           leftControl  = document.getElementById('left-control'),
           rightControl = document.getElementById('right-control'),
           canvas       = document.getElementById('breakout'),
+          wrapper      = document.getElementById('canvas-wrapper'),
           ctx          = canvas.getContext('2d');
 
     cursor.style.display = 'none';
@@ -145,11 +149,14 @@
 
     let running = false, remainingTime = 30.0, timerInterval;
     const rows = 4, cols = 10, padding = 8;
-    let bricks = [], ballTrail = [];
+    let bricks = [], ballTrail = [], particles = [];
+
     const paddle = { x:0, y:0, width:0, height:10, dx:0, speed:6 },
           ball   = { x:0, y:0, radius:6, dx:4, dy:-4 };
 
-    const brickColors = ['#000000', '#14213d', '#fca311', '#e5e5e5'];
+    const brickColors = ['#1c2143', '#343957', '#4d516b', '#65697f'];
+
+    const shake = { x: 0, y: 0, duration: 0 };
 
     function resizeCanvas() {
       canvas.width  = canvas.clientWidth;
@@ -183,6 +190,8 @@
       ball.y = canvas.height - 50;
       ball.dx = 4; ball.dy = -4;
       ballTrail = [];
+      particles = [];
+      shake.duration = 0;
     }
 
     function showPopup(text) {
@@ -196,10 +205,35 @@
       setTimeout(() => canvas.style.background = 'transparent', 50);
     }
 
+    function createParticles(x, y, color) {
+      for (let i = 0; i < 14; i++) {
+        particles.push({
+          x, y,
+          dx: (Math.random() - 0.5) * 3,
+          dy: (Math.random() - 1.5) * 3,
+          size: 3 + Math.random() * 2,
+          color,
+          life: 40,
+          gravity: 0.15
+        });
+      }
+    }
+
+    function shakeCanvas() {
+      if (shake.duration > 0) {
+        shake.x = (Math.random() - 0.5) * 6;
+        shake.y = (Math.random() - 0.5) * 6;
+        wrapper.style.transform = `translate(${shake.x}px, ${shake.y}px)`;
+        shake.duration--;
+      } else {
+        wrapper.style.transform = 'translate(0, 0)';
+      }
+    }
+
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Ball trail - shorter and more transparent
+      // Ball trail
       ballTrail.forEach((p, i) => {
         ctx.beginPath();
         ctx.globalAlpha = (i + 1) / (ballTrail.length * 2);
@@ -227,7 +261,13 @@
         }
       });
 
-      ctx.fillStyle = '#000'; // reset
+      // Particles
+      particles.forEach(p => {
+        ctx.globalAlpha = p.life / 40;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, p.size, p.size);
+      });
+      ctx.globalAlpha = 1;
     }
 
     function updateGame() {
@@ -237,7 +277,9 @@
       ball.y += ball.dy;
 
       ballTrail.push({ x: ball.x, y: ball.y });
-      if (ballTrail.length > 5) ballTrail.shift(); // shortened trail
+      if (ballTrail.length > 5) ballTrail.shift();
+
+      let brokenThisFrame = 0;
 
       if (ball.x < ball.radius || ball.x > canvas.width - ball.radius) ball.dx *= -1;
       if (ball.y < ball.radius) ball.dy *= -1;
@@ -259,11 +301,27 @@
           b.broken = true;
           ball.dy *= -1;
           remainingTime += 1;
-          flashCanvas();
-          showPopup('+1 second');
-          break;
+          createParticles(ball.x, ball.y, b.color);
+          brokenThisFrame++;
         }
       }
+
+      if (brokenThisFrame > 0) {
+        flashCanvas();
+        showPopup(`+${brokenThisFrame}s`);
+        if (brokenThisFrame >= 2) shake.duration = 6; // 🎯 subtle screen shake
+      }
+
+      shakeCanvas();
+
+      particles.forEach(p => {
+        p.x += p.dx;
+        p.y += p.dy;
+        p.dy += p.gravity;
+        p.size *= 0.96;
+        p.life -= 1;
+      });
+      particles = particles.filter(p => p.life > 0);
 
       if (bricks.every(b => b.broken)) return endGame('win');
 

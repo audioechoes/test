@@ -3,13 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Breakout of Time v1.2</title>
+  <title>Breakout of Time v1.3</title>
   <style>
     html, body {
       margin: 0; padding: 0;
       height: 100%; width: 100%;
       background: #f9f9f9;
       overflow: hidden;
+      font-family: monospace;
+    }
+    * {
       font-family: monospace;
     }
     #canvas-wrapper {
@@ -103,7 +106,7 @@
   </div>
   <script>
     const lines = [
-      'Breakout of Time v1.2', '',
+      'Breakout of Time v1.3', '',
       '← / → to shuffle your regrets',
       'Destroy bricks, not your self-esteem',
       '+1s per brick — because apparently you need a reward for basic effort', '',
@@ -146,6 +149,8 @@
     const paddle = { x:0, y:0, width:0, height:10, dx:0, speed:6 },
           ball   = { x:0, y:0, radius:6, dx:4, dy:-4 };
 
+    const brickColors = ['#000000', '#14213d', '#fca311', '#e5e5e5'];
+
     function resizeCanvas() {
       canvas.width  = canvas.clientWidth;
       canvas.height = canvas.clientHeight;
@@ -165,7 +170,7 @@
             x: offsetX + c * (bw + padding),
             y: r * (bw * 0.3 + padding) + 60,
             w: bw, h: bw * 0.3, broken: false,
-            color: `hsl(${(r / rows) * 240}, 50%, 60%)`
+            color: brickColors[r % brickColors.length]
           });
         }
       }
@@ -187,17 +192,17 @@
     }
 
     function flashCanvas() {
-      canvas.style.background = 'rgba(255,255,255,0.3)';
+      canvas.style.background = 'rgba(255,255,255,0.2)';
       setTimeout(() => canvas.style.background = 'transparent', 50);
     }
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Ball trail
+      // Ball trail - shorter and more transparent
       ballTrail.forEach((p, i) => {
         ctx.beginPath();
-        ctx.globalAlpha = i / ballTrail.length;
+        ctx.globalAlpha = (i + 1) / (ballTrail.length * 2);
         ctx.arc(p.x, p.y, ball.radius, 0, Math.PI * 2);
         ctx.fill();
         ctx.closePath();
@@ -232,7 +237,7 @@
       ball.y += ball.dy;
 
       ballTrail.push({ x: ball.x, y: ball.y });
-      if (ballTrail.length > 10) ballTrail.shift();
+      if (ballTrail.length > 5) ballTrail.shift(); // shortened trail
 
       if (ball.x < ball.radius || ball.x > canvas.width - ball.radius) ball.dx *= -1;
       if (ball.y < ball.radius) ball.dy *= -1;
@@ -331,4 +336,3 @@
   </script>
 </body>
 </html>
-

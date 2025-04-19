@@ -122,6 +122,7 @@
       font-weight: bold;
       color: #fff;
       opacity: 0;
+      display: none;
       pointer-events: none;
       z-index: 25;
       transition: opacity 0.3s ease;
@@ -366,21 +367,27 @@
       const sequence = ['3', '2', '1', 'BEGIN'];
       let i = 0;
 
+      countdown.style.display = 'block';
+      countdown.style.opacity = '0';
+
       const next = () => {
         if (i >= sequence.length) {
           countdown.style.opacity = '0';
           setTimeout(() => {
             countdown.textContent = '';
+            countdown.style.display = 'none';
             callback();
           }, 300);
           return;
         }
+
         countdown.textContent = sequence[i++];
         countdown.style.opacity = '1';
+
         setTimeout(() => {
           countdown.style.opacity = '0';
-          setTimeout(next, 300);
-        }, 700);
+          setTimeout(next, 250);
+        }, 650);
       };
 
       next();

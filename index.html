@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Breakout of Time v1.5</title>
+  <title>Breakout of Time v1.6</title>
   <style>
     html, body {
       margin: 0; padding: 0;
       height: 100%; width: 100%;
-      background: #f9f9f9;
+      background: transparent;
       overflow: hidden;
       font-family: monospace;
     }
@@ -109,12 +109,13 @@
   </div>
   <script>
     const lines = [
-      'Breakout of Time v1.5', '',
+      'Breakout of Time v1.6 — Blackout Edition', '',
       '← / → to shuffle your regrets',
       'Destroy bricks, not your self-esteem',
       '+1s per brick — because apparently you need a reward for basic effort', '',
       'Click Start to pretend this means something.'
     ];
+
     let lineIndex = 0, charIndex = 0;
     const overlay      = document.getElementById('overlay'),
           bootText     = document.getElementById('boot-text'),
@@ -154,7 +155,8 @@
     const paddle = { x:0, y:0, width:0, height:10, dx:0, speed:6 },
           ball   = { x:0, y:0, radius:6, dx:4, dy:-4 };
 
-    const brickColors = ['#1c2143', '#343957', '#4d516b', '#65697f'];
+    // 🖤 Shades of black for brick tones
+    const brickColors = ['#2e2e2e', '#1e1e1e', '#121212', '#000000'];
 
     const shake = { x: 0, y: 0, duration: 0 };
 
@@ -201,7 +203,7 @@
     }
 
     function flashCanvas() {
-      canvas.style.background = 'rgba(255,255,255,0.2)';
+      canvas.style.background = 'rgba(255,255,255,0.1)';
       setTimeout(() => canvas.style.background = 'transparent', 50);
     }
 
@@ -233,7 +235,6 @@
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Ball trail
       ballTrail.forEach((p, i) => {
         ctx.beginPath();
         ctx.globalAlpha = (i + 1) / (ballTrail.length * 2);
@@ -243,17 +244,14 @@
       });
       ctx.globalAlpha = 1;
 
-      // Paddle
       ctx.fillStyle = '#000';
       ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
 
-      // Ball
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
       ctx.fill();
       ctx.closePath();
 
-      // Bricks
       bricks.forEach(b => {
         if (!b.broken) {
           ctx.fillStyle = b.color;
@@ -261,7 +259,6 @@
         }
       });
 
-      // Particles
       particles.forEach(p => {
         ctx.globalAlpha = p.life / 40;
         ctx.fillStyle = p.color;
@@ -272,6 +269,7 @@
 
     function updateGame() {
       if (!running) return;
+
       paddle.x = Math.max(0, Math.min(canvas.width - paddle.width, paddle.x + paddle.dx));
       ball.x += ball.dx;
       ball.y += ball.dy;
@@ -309,7 +307,7 @@
       if (brokenThisFrame > 0) {
         flashCanvas();
         showPopup(`+${brokenThisFrame}s`);
-        if (brokenThisFrame >= 2) shake.duration = 6; // 🎯 subtle screen shake
+        if (brokenThisFrame >= 2) shake.duration = 6;
       }
 
       shakeCanvas();
@@ -369,7 +367,6 @@
     }
 
     startBtn.addEventListener('click', startGame);
-
     document.addEventListener('keydown', e => {
       if (running) {
         if (e.key === 'ArrowLeft')  paddle.dx = -paddle.speed;

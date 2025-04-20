@@ -88,7 +88,32 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-let paddle, ball, bricks, keys, gameRunning;
+let paddle, ball, bricks, keys, gameRunning, interval;
+
+function typeLine(lines, index = 0, charIndex = 0) {
+  if (index >= lines.length) return;
+  const line = lines[index];
+  const targetLine = document.createElement('div');
+  document.getElementById("bootText").appendChild(targetLine);
+
+  function typeChar() {
+    if (charIndex < line.length) {
+      targetLine.textContent += line[charIndex++];
+      setTimeout(typeChar, 20);
+    } else {
+      setTimeout(() => typeLine(lines, index + 1), 200);
+    }
+  }
+  typeChar();
+}
+
+function animateTitle(title, index = 0) {
+  const titleElement = document.getElementById("gameTitle");
+  if (index < title.length) {
+    titleElement.textContent += title[index];
+    setTimeout(() => animateTitle(title, index + 1), 120);
+  }
+}
 
 function initGameElements() {
   // Initialize paddle
@@ -183,6 +208,14 @@ function gameLoop() {
     }
   });
 
+  // Handle paddle movement
+  if (keys["ArrowLeft"] && paddle.x > 0) {
+    paddle.x -= 5;
+  }
+  if (keys["ArrowRight"] && paddle.x + paddle.width < canvas.width) {
+    paddle.x += 5;
+  }
+
   requestAnimationFrame(gameLoop);
 }
 
@@ -198,6 +231,29 @@ function restartGame() {
   document.getElementById("loseScreen").style.display = "none";
   document.getElementById("startScreen").style.display = "flex";
 }
+
+document.addEventListener("keydown", (e) => {
+  keys[e.key] = true;
+});
+
+document.addEventListener("keyup", (e) => {
+  keys[e.key] = false;
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  typeLine([
+    '> ◄ and ► arrow keys to drag a pixelated line across the screen.',
+    '> Yes, this is your life now.',
+    '> Smash every last brick before the timer says you\'ve wasted enough time.',
+    '> You’ve got 5 lives. ( You are not a Cat)',
+    '> You\'ll burn through them faster than your phone battery on 3%.',
+    '> Every hit adds a few more seconds.',
+    '> Not that it\'ll help.',
+    '> Keep one eye on the timer.',
+    '> Not that panic ever made anyone play better.'
+  ]);
+  animateTitle("(Break)Outhere Brothers");
+});
 </script>
 </body>
 </html>

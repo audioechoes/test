@@ -2,262 +2,202 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Brick Breaker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>(Break)Outhere Brothers</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&display=swap" rel="stylesheet">
   <style>
-    html, body {
+    body, html {
       margin: 0;
       padding: 0;
-      background-color: #ffffff;
-      font-family: "Courier New", monospace;
-      text-align: center;
-      touch-action: none;
+      overflow: hidden;
+      background: transparent;
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: normal;
+      color: black;
     }
-
-    h1, h4 {
-      margin: 0.25em;
-    }
-
     canvas {
-      background: #ffffff;
-      border: 2px solid #000000;
       display: block;
+      background: transparent;
+      border: 1px solid black;
       margin: 20px auto;
-      touch-action: none;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      color: black;
     }
-
-    button {
-      font-family: "Courier New", monospace;
-      font-size: 16px;
-      margin: 10px;
-      padding: 10px 20px;
+    #startScreen, #winScreen, #loseScreen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+    }
+    #startScreenInner h1 {
+      color: black;
+      font-size: 36px;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+    #startScreenInner .instruction {
+      color: black;
+      font-size: 14px;
+      margin: 4px 0;
+      text-align: left;
+    }
+    #startScreenInner button {
+      margin-top: 24px;
+      padding: 8px 16px;
+      font-size: 14px;
+      background: white;
+      color: black;
+      border: 1px solid black;
+      font-family: 'IBM Plex Mono', monospace;
       cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    #startScreenInner button:hover {
+      background: black;
+      color: white;
     }
   </style>
 </head>
-<body tabindex="0">
-  <h1>Brick Breaker</h1>
-  <h4>Goal: Eliminate all the bricks.</h4>
-  <button id="startBtn">Start Game</button>
-  <canvas id="myCanvas" width="480" height="320"></canvas>
+<body>
+<div id="startScreen">
+  <div id="startScreenInner">
+    <h1 id="gameTitle"></h1>
+    <pre id="bootText" style="font-size: 14px; line-height: 1.6; text-align: left; margin: 0 auto 0 0; padding: 0; width: 100%;"></pre>
+    <button onclick="startGame()">Start</button>
+  </div>
+</div>
+<div id="winScreen" style="display:none; text-align: center; padding: 40px;">
+  <div>Congratulations. You bounced a dot off a rectangle long enough to win.<br/>Your prize? The chance to do it all over again.</div>
+  <button onclick="restartGame()" style="background: white; color: black; border: 1px solid black; font-family: 'IBM Plex Mono', monospace; padding: 8px 16px; margin-top: 20px;">Retry (sure, why not)</button>
+</div>
+<div id="loseScreen" style="display:none; text-align: center; padding: 40px;">
+  <div>Game over.<br/>The bricks survived. You didn’t.<br/>Not the worst failure you’ve had today, probably.</div>
+  <button onclick="restartGame()" style="background: white; color: black; border: 1px solid black; font-family: 'IBM Plex Mono', monospace; padding: 8px 16px; margin-top: 20px;">Retry (go on, pretend it’ll be different this time)</button>
+</div>
+<canvas id="gameCanvas" width="1000" height="600"></canvas>
 
-  <!-- 🔊 Sounds -->
-  <audio id="brickSound" src="https://actions.google.com/sounds/v1/impacts/crash.ogg"></audio>
-  <audio id="paddleSound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"></audio>
-  <audio id="winSound" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
-  <audio id="loseSound" src="https://actions.google.com/sounds/v1/cartoon/concussive_hit_guitar_boing.ogg"></audio>
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-  <script>
-    const canvas = document.getElementById("myCanvas");
-    const ctx = canvas.getContext("2d");
+let paddle, ball, bricks, keys, gameRunning;
 
-    const ballRadius = 6;
-    const paddleHeight = 10;
-    const paddleWidth = 75;
-    const brickRowCount = 5;
-    const brickColumnCount = 4;
-    const brickWidth = 75;
-    const brickHeight = 20;
-    const brickPadding = 10;
-    const brickOffsetTop = 30;
-    const brickOffsetLeft = 30;
+function initGameElements() {
+  // Initialize paddle
+  paddle = { x: canvas.width / 2 - 50, y: canvas.height - 20, width: 100, height: 10 };
+  // Initialize ball
+  ball = { x: canvas.width / 2, y: canvas.height / 2, radius: 10, dx: 3, dy: -3 };
+  // Initialize bricks
+  bricks = [];
+  const rows = 4;
+  const cols = 8;
+  const brickWidth = canvas.width / cols - 10;
+  const brickHeight = 20;
 
-    let x, y, dx, dy, paddleX, rightPressed, leftPressed;
-    let score = 0;
-    let lives = 3;
-    let gameRunning = false;
-
-    const bricks = [];
-    function initBricks() {
-      for (let c = 0; c < brickColumnCount; c++) {
-        bricks[c] = [];
-        for (let r = 0; r < brickRowCount; r++) {
-          bricks[c][r] = { x: 0, y: 0, status: 1 };
-        }
-      }
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      bricks.push({
+        x: 10 + c * (brickWidth + 10),
+        y: 10 + r * (brickHeight + 10),
+        width: brickWidth,
+        height: brickHeight,
+        status: true
+      });
     }
+  }
 
-    // Sound Elements
-    const brickSound = document.getElementById("brickSound");
-    const paddleSound = document.getElementById("paddleSound");
-    const winSound = document.getElementById("winSound");
-    const loseSound = document.getElementById("loseSound");
+  // Initialize keys
+  keys = {};
+  gameRunning = true;
+}
 
-    function resetBallAndPaddle() {
-      x = canvas.width / 2;
-      y = canvas.height - 30;
-      dx = 2;
-      dy = -2;
-      paddleX = (canvas.width - paddleWidth) / 2;
-    }
+function drawPaddle() {
+  ctx.fillStyle = "black";
+  ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+}
 
-    function initGame() {
-      score = 0;
-      lives = 3;
-      rightPressed = false;
-      leftPressed = false;
-      resetBallAndPaddle();
-      initBricks();
-      gameRunning = true;
-      draw();
-    }
+function drawBall() {
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+  ctx.fillStyle = "black";
+  ctx.fill();
+  ctx.closePath();
+}
 
-    document.body.addEventListener("keydown", e => {
-      if (e.key === "ArrowRight") rightPressed = true;
-      else if (e.key === "ArrowLeft") leftPressed = true;
-    });
-
-    document.body.addEventListener("keyup", e => {
-      if (e.key === "ArrowRight") rightPressed = false;
-      else if (e.key === "ArrowLeft") leftPressed = false;
-    });
-
-    canvas.addEventListener("touchstart", e => {
-      const touchX = e.touches[0].clientX;
-      const canvasMid = window.innerWidth / 2;
-      if (touchX > canvasMid) rightPressed = true;
-      else leftPressed = true;
-    });
-
-    canvas.addEventListener("touchend", () => {
-      rightPressed = false;
-      leftPressed = false;
-    });
-
-    document.getElementById("startBtn").addEventListener("click", () => {
-      initGame();
-    });
-
-    function collisionDetection() {
-      for (let c = 0; c < brickColumnCount; c++) {
-        for (let r = 0; r < brickRowCount; r++) {
-          const b = bricks[c][r];
-          if (b.status === 1) {
-            if (
-              x > b.x &&
-              x < b.x + brickWidth &&
-              y > b.y &&
-              y < b.y + brickHeight
-            ) {
-              dy = -dy;
-              b.status = 0;
-              score++;
-              brickSound.play();
-
-              if (score === brickRowCount * brickColumnCount) {
-                winSound.play();
-                alert("YOU WIN! 🏆");
-                gameRunning = false;
-                document.getElementById("startBtn").style.display = "inline";
-              }
-            }
-          }
-        }
-      }
-    }
-
-    function drawBall() {
-      ctx.beginPath();
-      ctx.arc(x, y, ballRadius, 0, Math.PI * 2);
+function drawBricks() {
+  bricks.forEach(brick => {
+    if (brick.status) {
       ctx.fillStyle = "black";
-      ctx.fill();
-      ctx.closePath();
+      ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
     }
+  });
+}
 
-    function drawPaddle() {
-      ctx.beginPath();
-      ctx.rect(paddleX, canvas.height - paddleHeight, paddleWidth, paddleHeight);
-      ctx.fillStyle = "black";
-      ctx.fill();
-      ctx.closePath();
+function clearCanvas() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function gameLoop() {
+  if (!gameRunning) return;
+
+  clearCanvas();
+  drawPaddle();
+  drawBall();
+  drawBricks();
+
+  // Ball movement
+  ball.x += ball.dx;
+  ball.y += ball.dy;
+
+  // Bounce off walls
+  if (ball.x + ball.radius > canvas.width || ball.x - ball.radius < 0) {
+    ball.dx = -ball.dx;
+  }
+  if (ball.y - ball.radius < 0) {
+    ball.dy = -ball.dy;
+  }
+
+  // Bounce off paddle
+  if (
+    ball.y + ball.radius > paddle.y &&
+    ball.x > paddle.x &&
+    ball.x < paddle.x + paddle.width
+  ) {
+    ball.dy = -ball.dy;
+  }
+
+  // Check brick collisions
+  bricks.forEach(brick => {
+    if (brick.status && ball.y - ball.radius < brick.y + brick.height && ball.y + ball.radius > brick.y &&
+        ball.x > brick.x && ball.x < brick.x + brick.width) {
+      ball.dy = -ball.dy;
+      brick.status = false;
     }
+  });
 
-    function drawBricks() {
-      for (let c = 0; c < brickColumnCount; c++) {
-        for (let r = 0; r < brickRowCount; r++) {
-          if (bricks[c][r].status === 1) {
-            const brickX = r * (brickWidth + brickPadding) + brickOffsetLeft;
-            const brickY = c * (brickHeight + brickPadding) + brickOffsetTop;
-            bricks[c][r].x = brickX;
-            bricks[c][r].y = brickY;
-            ctx.beginPath();
-            ctx.rect(brickX, brickY, brickWidth, brickHeight);
-            ctx.fillStyle = "black";
-            ctx.fill();
-            ctx.closePath();
-          }
-        }
-      }
-    }
+  requestAnimationFrame(gameLoop);
+}
 
-    function drawScore() {
-      ctx.font = "16px Courier New";
-      ctx.fillStyle = "black";
-      ctx.fillText("Score: " + score, 8, 20);
-    }
+function startGame() {
+  document.getElementById("startScreen").style.display = "none";
+  initGameElements();
+  gameLoop();
+}
 
-    function drawLives() {
-      ctx.font = "16px Courier New";
-      ctx.fillStyle = "black";
-      ctx.fillText("Lives: " + lives, canvas.width - 80, 20);
-    }
-
-    function draw() {
-      if (!gameRunning) return;
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawBricks();
-      drawBall();
-      drawPaddle();
-      drawScore();
-      drawLives();
-      collisionDetection();
-
-      if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) {
-        dx = -dx;
-      }
-
-      if (y + dy < ballRadius) {
-        dy = -dy;
-      } else if (y + dy > canvas.height - ballRadius) {
-        if (x > paddleX && x < paddleX + paddleWidth) {
-          dy = -dy;
-          paddleSound.play();
-        } else {
-          lives--;
-          loseSound.play();
-          if (!lives) {
-            alert("GAME OVER 💀");
-            gameRunning = false;
-            document.getElementById("startBtn").style.display = "inline";
-            return;
-          } else {
-            resetBallAndPaddle();
-          }
-        }
-      }
-
-      if (rightPressed && paddleX < canvas.width - paddleWidth) {
-        paddleX += 7;
-      } else if (leftPressed && paddleX > 0) {
-        paddleX -= 7;
-      }
-
-      x += dx;
-      y += dy;
-
-      requestAnimationFrame(draw);
-    }
-
-    // 🎯 Responsive scaling
-    function resizeCanvas() {
-      const scale = Math.min(window.innerWidth / 480, window.innerHeight / 320);
-      canvas.style.transform = `scale(${scale})`;
-      canvas.style.transformOrigin = "top left";
-    }
-
-    window.addEventListener("resize", resizeCanvas);
-    resizeCanvas();
-  </script>
+function restartGame() {
+  gameRunning = false;
+  document.getElementById("winScreen").style.display = "none";
+  document.getElementById("loseScreen").style.display = "none";
+  document.getElementById("startScreen").style.display = "flex";
+}
+</script>
 </body>
 </html>

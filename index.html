@@ -2,247 +2,288 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>(Break)Outhere Brothers</title>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breaking Out for the Summer</title>
   <style>
-    body, html {
+    html, body {
       margin: 0;
       padding: 0;
-      overflow: hidden;
-      background: transparent;
-      font-family: 'IBM Plex Mono', monospace;
-      font-weight: normal;
+      background: white;
       color: black;
+      overflow: hidden;
+      font-family: monospace;
     }
     canvas {
       display: block;
-      background: transparent;
-      border: 1px solid black;
-      margin: 20px auto;
-      box-shadow: 0 0 10px rgba(0,0,0,0.3);
-      color: black;
+      margin: 0 auto;
+      background: white;
+      border: 2px solid black;
     }
-    #startScreen, #winScreen, #loseScreen {
+    #endScreen, #overlayText {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: white;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
+      background: rgba(255, 255, 255, 0.85);
       z-index: 10;
     }
-    #startScreenInner h1 {
-      color: black;
+    #overlayText {
       font-size: 36px;
-      margin-bottom: 24px;
-      text-align: left;
+      pointer-events: none;
+      background: none;
     }
-    #startScreenInner .instruction {
-      color: black;
-      font-size: 14px;
-      margin: 4px 0;
-      text-align: left;
-    }
-    #startScreenInner button {
-      margin-top: 24px;
-      padding: 8px 16px;
-      font-size: 14px;
-      background: white;
-      color: black;
-      border: 1px solid black;
-      font-family: 'IBM Plex Mono', monospace;
+    .game-btn {
+      font-size: 20px;
+      padding: 10px 20px;
       cursor: pointer;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-    #startScreenInner button:hover {
-      background: black;
-      color: white;
+      margin-top: 20px;
+      font-family: monospace;
     }
   </style>
 </head>
 <body>
-<div id="startScreen">
-  <div id="startScreenInner">
-    <h1 id="gameTitle"></h1>
-    <pre id="bootText" style="font-size: 14px; line-height: 1.6; text-align: left; margin: 0 auto 0 0; padding: 0; width: 100%;"></pre>
-    <button onclick="startGame()">Start</button>
+  <div id="endScreen" style="display: none;">
+    <h1>Game Over</h1>
+    <p id="finalScore"></p>
+    <button class="game-btn" onclick="location.reload()">Play Again</button>
   </div>
-</div>
-<div id="winScreen" style="display:none; text-align: center; padding: 40px;">
-  <div>Congratulations. You bounced a dot off a rectangle long enough to win.<br/>Your prize? The chance to do it all over again.</div>
-  <button onclick="restartGame()" style="background: white; color: black; border: 1px solid black; font-family: 'IBM Plex Mono', monospace; padding: 8px 16px; margin-top: 20px;">Retry (sure, why not)</button>
-</div>
-<div id="loseScreen" style="display:none; text-align: center; padding: 40px;">
-  <div>Game over.<br/>The bricks survived. You didn’t.<br/>Not the worst failure you’ve had today, probably.</div>
-  <button onclick="restartGame()" style="background: white; color: black; border: 1px solid black; font-family: 'IBM Plex Mono', monospace; padding: 8px 16px; margin-top: 20px;">Retry (go on, pretend it’ll be different this time)</button>
-</div>
-<canvas id="gameCanvas" width="1000" height="600"></canvas>
+  <div id="overlayText"></div>
+  <div id="startScreen" style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:white;z-index:10;font-size:28px;font-family:monospace;cursor:pointer;">
+    Click to Start
+  </div>
+  <canvas id="gameCanvas" tabindex="0" width="1000" height="600"></canvas>
 
-<script>
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const WIDTH = canvas.width;
+    const HEIGHT = canvas.height;
 
-let paddle, ball, bricks, keys, particles, gameRunning, lives, timer;
+    const paddle = { width: 150, height: 20, x: WIDTH / 2 - 75, y: HEIGHT - 30, speed: 10, dx: 0 };
+    const ball = { x: WIDTH / 2, y: HEIGHT - 60, radius: 10, speed: 6, dx: 6, dy: -6 };
+    const brick = { rowCount: 5, columnCount: 10, width: 90, height: 30, padding: 10, offsetTop: 50, offsetLeft: 40 };
 
-function initGameElements() {
-  paddle = { x: canvas.width / 2 - 50, y: canvas.height - 20, width: 100, height: 30 };
-  ball = { x: canvas.width / 2, y: canvas.height / 2, radius: 10, dx: 3, dy: -3 };
-  bricks = [];
-  particles = [];
-  lives = 3;
-  timer = 30;
-  
-  const rows = 4;
-  const cols = 8;
-  const brickWidth = canvas.width / cols - 10;
-  const brickHeight = 20;
+    let bricks = [], particles = [], floatingTexts = [];
+    let lives = 5, lostLifeTick = 0, lastBonusScore = 0;
+    let score = 0, level = 1;
+    const maxLevel = 3;
+    let isPaused = false, gameStarted = false, gameOver = false;
 
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      bricks.push({
-        x: 10 + c * (brickWidth + 10),
-        y: 10 + r * (brickHeight + 10),
-        width: brickWidth,
-        height: brickHeight,
-        label: (c + r) % 2 === 0 ? "AUDIO" : "ECHOES",
-        status: true
+    const overlayText = document.getElementById('overlayText');
+
+    function createBricks() {
+      bricks = [];
+      for (let r = 0; r < brick.rowCount; r++) {
+        bricks[r] = [];
+        for (let c = 0; c < brick.columnCount; c++) {
+          bricks[r][c] = { x: 0, y: 0, visible: true };
+        }
+      }
+    }
+    createBricks();
+
+    function drawPaddle() {
+      ctx.fillStyle = 'black';
+      ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+    }
+
+    function drawBall() {
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+      ctx.fillStyle = 'black';
+      ctx.fill();
+      ctx.closePath();
+    }
+
+    function drawBricks() {
+      bricks.forEach((row, rIdx) => {
+        row.forEach((b, cIdx) => {
+          if (b.visible) {
+            const x = cIdx * (brick.width + brick.padding) + brick.offsetLeft;
+            const y = rIdx * (brick.height + brick.padding) + brick.offsetTop;
+            b.x = x; b.y = y;
+            ctx.fillStyle = 'black';
+            ctx.fillRect(x, y, brick.width, brick.height);
+          }
+        });
       });
     }
-  }
-  keys = {};
-  gameRunning = true;
-}
 
-function drawPaddle() {
-  ctx.fillStyle = "black";
-  ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
-
-  ctx.fillStyle = "white";
-  ctx.fillRect(paddle.x + paddle.width / 2 - 25, paddle.y + 5, 50, 20);
-
-  ctx.fillStyle = "black";
-  ctx.font = "14px 'IBM Plex Mono'";
-  ctx.textAlign = "center";
-  ctx.fillText(`${"♥".repeat(lives)} ${timer}`, paddle.x + paddle.width / 2, paddle.y + 20);
-}
-
-function drawBall() {
-  ctx.beginPath();
-  ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-  ctx.fillStyle = "black";
-  ctx.fill();
-  ctx.closePath();
-}
-
-function drawBricks() {
-  bricks.forEach(brick => {
-    if (brick.status) {
-      ctx.fillStyle = "black";
-      ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
-      ctx.fillStyle = "white";
-      ctx.font = "14px 'IBM Plex Mono'";
-      ctx.textAlign = "center";
-      ctx.fillText(brick.label, brick.x + brick.width / 2, brick.y + brick.height / 2 + 5);
+    function drawScore() {
+      ctx.fillStyle = 'black';
+      ctx.font = '20px monospace';
+      ctx.fillText(`Score: ${score}`, 20, 30);
+      ctx.fillText(`Level: ${level}`, WIDTH - 120, 30);
+      drawLives();
     }
-  });
-}
 
-function drawParticles() {
-  particles.forEach(particle => {
-    ctx.globalAlpha = particle.life;
-    ctx.fillStyle = "black";
-    ctx.fillRect(particle.x, particle.y, 2, 2);
-    ctx.globalAlpha = 1;
-  });
-}
-
-function updateParticles() {
-  particles.forEach((particle, index) => {
-    particle.x += particle.dx;
-    particle.y += particle.dy;
-    particle.life -= 0.02;
-    if (particle.life <= 0) particles.splice(index, 1);
-  });
-}
-
-function createParticles(x, y) {
-  for (let i = 0; i < 10; i++) {
-    particles.push({
-      x: x,
-      y: y,
-      dx: (Math.random() - 0.5) * 2,
-      dy: (Math.random() - 0.5) * 2,
-      life: 1
-    });
-  }
-}
-
-function gameLoop() {
-  if (!gameRunning) return;
-
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  drawPaddle();
-  drawBall();
-  drawBricks();
-  drawParticles();
-
-  ball.x += ball.dx;
-  ball.y += ball.dy;
-
-  if (ball.x + ball.radius > canvas.width || ball.x - ball.radius < 0) ball.dx = -ball.dx;
-  if (ball.y - ball.radius < 0) ball.dy = -ball.dy;
-  if (
-    ball.y + ball.radius > paddle.y &&
-    ball.x > paddle.x &&
-    ball.x < paddle.x + paddle.width
-  ) {
-    ball.dy = -ball.dy;
-  }
-
-  bricks.forEach(brick => {
-    if (
-      brick.status &&
-      ball.y - ball.radius < brick.y + brick.height &&
-      ball.y + ball.radius > brick.y &&
-      ball.x > brick.x &&
-      ball.x < brick.x + brick.width
-    ) {
-      ball.dy = -ball.dy;
-      brick.status = false;
-      createParticles(ball.x, ball.y);
+    function drawLives() {
+      ctx.font = lostLifeTick > 0 ? '26px monospace' : '20px monospace';
+      ctx.fillStyle = 'black';
+      ctx.fillText('Lives: ' + '🖤'.repeat(lives), WIDTH / 2 - 50, 30);
+      if (lostLifeTick > 0) lostLifeTick--;
     }
-  });
 
-  updateParticles();
+    function movePaddle() {
+      paddle.x += paddle.dx;
+      if (paddle.x < 0) paddle.x = 0;
+      if (paddle.x + paddle.width > WIDTH) paddle.x = WIDTH - paddle.width;
+    }
 
-  if (keys["ArrowLeft"] && paddle.x > 0) paddle.x -= 5;
-  if (keys["ArrowRight"] && paddle.x + paddle.width < canvas.width) paddle.x += 5;
+    function spawnParticles(x, y) {
+      for (let i = 0; i < 10; i++) {
+        particles.push({ x, y, dx: (Math.random() - 0.5) * 4, dy: (Math.random() - 0.5) * 4, life: 30 });
+      }
+    }
 
-  requestAnimationFrame(gameLoop);
-}
+    function updateParticles() {
+      particles.forEach(p => {
+        p.x += p.dx;
+        p.y += p.dy;
+        p.life--;
+      });
+      particles = particles.filter(p => p.life > 0);
+    }
 
-document.addEventListener("keydown", e => keys[e.key] = true);
-document.addEventListener("keyup", e => keys[e.key] = false);
+    function drawParticles() {
+      ctx.fillStyle = 'black';
+      particles.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
 
-function startGame() {
-  document.getElementById("startScreen").style.display = "none";
-  initGameElements();
-  gameLoop();
-}
+    function moveBall() {
+      ball.x += ball.dx;
+      ball.y += ball.dy;
 
-function restartGame() {
-  gameRunning = false;
-  document.getElementById("winScreen").style.display = "none";
-  document.getElementById("loseScreen").style.display = "none";
-  document.getElementById("startScreen").style.display = "flex";
-}
-</script>
+      if (ball.x - ball.radius < 0 || ball.x + ball.radius > WIDTH) ball.dx *= -1;
+      if (ball.y - ball.radius < 0) ball.dy *= -1;
+
+      if (ball.x > paddle.x && ball.x < paddle.x + paddle.width && ball.y + ball.radius > paddle.y) {
+        ball.dy *= -1;
+        ball.y = paddle.y - ball.radius;
+        spawnParticles(ball.x, ball.y);
+      }
+
+      bricks.forEach(row => {
+        row.forEach(b => {
+          if (b.visible) {
+            if (ball.x > b.x && ball.x < b.x + brick.width && ball.y > b.y && ball.y < b.y + brick.height) {
+              ball.dy *= -1;
+              b.visible = false;
+              score += 10;
+              if (score - lastBonusScore >= 100 && lives < 5) {
+                lives++;
+                lastBonusScore = score;
+                floatingTexts.push({ text: '+1 🖤', x: ball.x, y: ball.y, alpha: 1 });
+              }
+              spawnParticles(ball.x, ball.y);
+            }
+          }
+        });
+      });
+
+      if (ball.y + ball.radius > HEIGHT) {
+        lives--;
+        lostLifeTick = 20;
+        floatingTexts.push({ text: '🖤', x: ball.x, y: ball.y, alpha: 1, shatter: true });
+        if (lives > 0) {
+          ball.x = WIDTH / 2;
+          ball.y = HEIGHT - 60;
+          paddle.x = WIDTH / 2 - paddle.width / 2;
+        } else {
+          endGame();
+        }
+      }
+
+      const allBricksCleared = bricks.every(row => row.every(b => !b.visible));
+      if (allBricksCleared) {
+        if (level < maxLevel) {
+          level++;
+          ball.speed += 2;
+          ball.dx = ball.speed * (ball.dx > 0 ? 1 : -1);
+          ball.dy = -ball.speed;
+          brick.rowCount++;
+          createBricks();
+          ball.x = WIDTH / 2;
+          ball.y = HEIGHT - 60;
+          paddle.x = WIDTH / 2 - paddle.width / 2;
+        } else {
+          endGame();
+        }
+      }
+    }
+
+    function drawFloatingText() {
+      floatingTexts.forEach((txt, i) => {
+        ctx.globalAlpha = txt.alpha;
+        ctx.font = txt.shatter ? 'bold 28px monospace' : 'bold 22px monospace';
+        ctx.fillStyle = 'black';
+        ctx.fillText(txt.text, txt.x, txt.y);
+        txt.y -= (txt.shatter ? 1.5 : 1) * txt.alpha;
+        txt.alpha -= txt.shatter ? 0.02 : 0.01;
+        if (txt.shatter) txt.x += Math.random() > 0.5 ? 1 : -1;
+      });
+      floatingTexts = floatingTexts.filter(t => t.alpha > 0);
+      ctx.globalAlpha = 1;
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, WIDTH, HEIGHT);
+      drawParticles();
+      drawPaddle();
+      drawBall();
+      drawBricks();
+      drawScore();
+      drawFloatingText();
+    }
+
+    function update() {
+      if (!gameStarted || gameOver) return;
+      if (!isPaused) {
+        movePaddle();
+        moveBall();
+        updateParticles();
+      }
+      draw();
+      requestAnimationFrame(update);
+    }
+
+    function startGame() {
+      canvas.focus();
+      gameStarted = true;
+      isPaused = false;
+      update();
+    }
+
+    function endGame() {
+      gameOver = true;
+      document.getElementById('endScreen').style.display = 'flex';
+      document.getElementById('finalScore').textContent = `Final Score: ${score}`;
+    }
+
+    function keyDown(e) {
+      if (e.key === 'ArrowRight' || e.key === 'Right') paddle.dx = paddle.speed;
+      else if (e.key === 'ArrowLeft' || e.key === 'Left') paddle.dx = -paddle.speed;
+    }
+
+    function keyUp(e) {
+      if (["Right", "ArrowRight", "Left", "ArrowLeft"].includes(e.key)) paddle.dx = 0;
+    }
+
+    document.addEventListener('keydown', keyDown);
+    document.addEventListener('keyup', keyUp);
+    document.getElementById('startScreen').addEventListener('click', () => {
+  document.getElementById('startScreen').style.display = 'none';
+  startGame();
+});
+  </script>
 </body>
 </html>
